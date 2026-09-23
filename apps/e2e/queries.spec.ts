@@ -33,7 +33,11 @@ test('query journey: CS logs → two departments respond → CS reviews, calls, 
 
   await cs.reload();
   await cs.getByRole('button', { name: 'Start review' }).click();
-  for (const _ of [0, 1]) await cs.getByRole('button', { name: 'Accept' }).first().click();
+  const accept = cs.getByRole('button', { name: 'Accept', exact: true });
+  for (const left of [1, 0]) {
+    await accept.first().click();
+    await expect(accept).toHaveCount(left);
+  }
   await expect(cs.getByText('Verification call', { exact: true })).toBeVisible();
   await cs.locator('textarea[name=summary]').fill('Explained the corrective action');
   await cs.getByRole('button', { name: 'Satisfied', exact: true }).click();
