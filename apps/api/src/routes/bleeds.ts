@@ -113,17 +113,19 @@ export function bleedRoutes(app: FastifyInstance) {
       const number = await nextNumber(tx, 'HBR');
       const [r] = await tx`insert into bleed_requests ${tx({ number, hospital_id: h.id, site_id: h.site_id, nurse_id: nurse, requested_by: b.requested_by, contact_phone: b.contact_phone, notes: b.notes, logged_by: req.user.id })} returning id, created_at`;
       const numbers: string[] = [];
+      const ids: string[] = [];
       for (const p of b.patients) {
         const bn = await nextNumber(tx, 'BLD');
         numbers.push(bn);
         const [x] = await tx`insert into bleeds ${tx({ ...p, number: bn, request_id: r.id, opened_at: r.created_at })} returning id`;
+        ids.push(x.id);
         await audit(tx, { actor: req.user.id, action: 'bleed.opened', entity: 'bleed', id: x.id, data: { number: bn, request: number } });
       }
       await audit(tx, { actor: req.user.id, action: 'bleed.requested', entity: 'bleed_request', id: r.id, data: { number, hospital: h.name, patients: b.patients.length, nurse } });
       const msg = { link: `/field/r/${r.id}`, number, title: `Bleed request · ${h.name} · ${b.patients.length} patient${b.patients.length > 1 ? 's' : ''}`, body: `${b.requested_by}${b.notes ? ` — ${b.notes}` : ''}` };
       if (nurse) await notify(tx, { users: [nurse] }, msg);
       else await notify(tx, { departments: [(await tx`select id from departments where code = 'NUR'`)[0]?.id ?? 0], deptRoles: ['dept_manager'] }, { ...msg, title: `Unallocated ${msg.title}` });
-      return { id: r.id, number, bleeds: numbers };
+      return { id: r.id, number, bleeds: numbers, bleed_ids: ids };
     });
     reply.code(201);
     return out;
@@ -226,7 +228,7 @@ export function bleedRoutes(app: FastifyInstance) {
     const files: Record<string, { data: Buffer; mime: string }> = {};
     for await (const part of req.parts({ limits: { fileSize: 15 * 1024 * 1024, files: 2 } })) {
       if (part.type === 'file') {
-        if (!['requisition', 'sticker'].includes(part.fieldname) || !part.mimetype.startsWith('image/')) fail(400, 'Photos must be images');
+        if (!['requisition', 'sticker'].includes(part.fieldname) || !/^image\/(jpeg|png|webp|heic|heif)$/.test(part.mimetype)) fail(400, 'Photos must be JPEG, PNG, WebP or HEIC');
         files[part.fieldname] = { data: await part.toBuffer(), mime: part.mimetype };
       } else fields[part.fieldname] = String(part.value);
     }

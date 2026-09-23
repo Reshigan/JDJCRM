@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Inbox, LogOut, Moon, Plus, Search, Settings2, Sun, UserRound } from 'lucide-react';
+import { Bell, Droplet, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
 import { can, ROLES } from '@baton/core';
-import { api, useMe } from './api';
+import { api, useLookups, useMe } from './api';
 import { ago, BatonMark, Button, cx } from './ui';
 
 function useTheme() {
@@ -39,7 +39,7 @@ function Notifications() {
           {data?.rows.map((n: any) => (
             <button
               key={n.id}
-              onClick={() => { read.mutate([n.id]); setOpen(false); if (n.ticket_id) nav(`/tickets/${n.ticket_id}`); }}
+              onClick={() => { read.mutate([n.id]); setOpen(false); const to = n.link ?? (n.ticket_id && `/tickets/${n.ticket_id}`); if (to) nav(to); }}
               className={cx('block w-full border-b border-line px-4 py-3 text-left last:border-0 hover:bg-surface-2', !n.read_at && 'bg-brand-soft/40')}
             >
               <div className="flex items-center justify-between gap-2 text-xs text-muted">
@@ -58,6 +58,7 @@ function Notifications() {
 
 export function Shell() {
   const { data: me, isLoading, error } = useMe();
+  const { data: lk } = useLookups();
   const { dark, toggle } = useTheme();
   const nav = useNavigate();
   const loc = useLocation();
@@ -77,6 +78,8 @@ export function Shell() {
   if (isLoading) return <div className="grid h-dvh place-items-center"><BatonMark size={40} className="pulse" /></div>;
   if (error || !me || !me.mfa_ok) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   if (me.role === 'admin' && !loc.pathname.startsWith('/admin') && loc.pathname !== '/account') return <Navigate to="/admin" replace />;
+  const dept = lk?.departments.find((d) => d.id === me.department_id)?.code;
+  if (dept === 'NUR' && me.role === 'dept_responder' && loc.pathname === '/tickets' && !loc.search) return <Navigate to="/field" replace />;
 
   const logout = async () => {
     await api('/auth/logout', { body: {} });
@@ -101,6 +104,10 @@ export function Shell() {
             <NavLink to="/tickets" end className={link}><Inbox size={17} />{can(me.role, 'tickets.view_all') ? 'Query board' : 'My department'}</NavLink>
           )}
           {can(me.role, 'ticket.open') && <NavLink to="/tickets/new" className={link}><Plus size={17} />New query</NavLink>}
+          {can(me.role, 'dashboard.view') && <NavLink to="/bleeds" end className={link}><Droplet size={17} />Bleed board</NavLink>}
+          {can(me.role, 'bleed.open') && <NavLink to="/bleeds/new" className={link}><Plus size={17} />New bleed request</NavLink>}
+          {(dept === 'PRE' || dept === 'ANA') && <NavLink to="/samples" className={link}><ScanLine size={17} />Sample desk</NavLink>}
+          {dept === 'NUR' && <NavLink to="/field" className={link}><Smartphone size={17} />Field app</NavLink>}
           {can(me.role, 'admin.configure') && <NavLink to="/admin" className={link}><Settings2 size={17} />Administration</NavLink>}
         </nav>
         <div className="mt-auto border-t border-line pt-3">

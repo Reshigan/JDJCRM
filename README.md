@@ -10,13 +10,43 @@ Every query and every bleed gets a ticket number, a named owner at each stage an
 |---|---|
 | Foundation: RBAC, local + AD sign-in with TOTP, hash-chained audit, admin configuration | ✅ Phase 1 |
 | Module A: query and ticket management | ✅ Phase 1 |
-| Module B: hospital bleed tickets + field PWA (geofence, encrypted photos, offline) | Phase 2 |
+| Module B: hospital bleed tickets, field PWA (geofence, encrypted photos, offline), sample desk | ✅ Phase 2 |
 | Central dashboard: live boards, analytics, Excel export, scheduled e-mails, Wall mode | Phase 3 |
 | Insights, retention jobs, Android wrap with mock-location detection | Phase 4 |
 
 | Ticket: department clocks, closure gate, audited timeline | Intake: live routing preview and repeat-complainant warning |
 |---|---|
 | ![Ticket](docs/screenshots/ticket.png) | ![New query](docs/screenshots/new-query.png) |
+
+### Module B: hospital bleeds
+
+| Bleed board: six timed intervals per patient | Bleed ticket: interval audit, photos, geolocation evidence |
+|---|---|
+| ![Bleed board](docs/screenshots/bleed-board.png) | ![Bleed detail](docs/screenshots/bleed-detail.png) |
+
+| Field app: arrival locked until inside the geofence | Capture: both photos, sticker fields and tubes required |
+|---|---|
+| ![Field arrival](docs/screenshots/field-arrive.png) | ![Field capture](docs/screenshots/field-capture.png) |
+
+- **One call, many patients.** Client Services logs one request (`HBR-…`) with N patients. Each patient is its own ticket (`BLD-…`) with its own clocks. Several hospitals on one run are just separate requests, so travel times never mix.
+- **Seven checkpoints, six intervals.** The intervals are *derived* from the checkpoints, so there can be no untracked gaps (brief §6.2):
+
+  | # | Interval | Starts | Stops |
+  |---|---|---|---|
+  | 1 | Response | CS opens the request | Nurse arrives (geofenced) |
+  | 2 | Bleed | Arrival | Photos + sticker fields + tubes captured |
+  | 3 | Logistics | Capture | Pre-Analytical accepts |
+  | 4 | Receiving | Pre-Analytical accepts | Lab accepts |
+  | 5 | Processing | Lab accepts | Results released (manual until the LIS interface exists) |
+  | 6 | Reporting | Release | Report filed in the folder (geofenced) |
+
+  Limits are in `bleed_limits`, editable in Admin → Settings. The ticket shows its worst interval; amber notifies the stage owner, red notifies Client Services and the department manager. A red interval cannot complete without a breach reason.
+- **Geofence** (brief §6.3). Checked on the device *and* on the server. A nurse outside the radius can only proceed by giving a reason, which raises a **geolocation exception** for Client Services. Location is only captured at arrival and at filing.
+- **Offline.** The field PWA caches its shell and the nurse's run, and queues arrival, capture (with photos) and filing on the phone. Each action carries the time it actually happened. The server keeps that time (bounded: never before the previous checkpoint, never in the future) and flags the bleed **late sync**. Replays are idempotent. The on-device data is wiped on sign-out.
+- **Exceptions** (brief §6.6).
+  - An unsuccessful bleed stops the clocks and waits for Client Services to close it.
+  - A cancelled bleed closes with a reason, keeps the travel time and is excluded from turnaround statistics.
+- **Sample desk.** Pre-Analytical and the laboratory scan the BLD or requisition barcode with a keyboard-wedge scanner and record their stage.
 
 ## On-premise install
 
@@ -59,8 +89,10 @@ Users sign in with their network login, and accounts are created on first sign-i
 ```sh
 npm install
 # a Postgres 16 you can reach; defaults to postgres://baton@127.0.0.1:5433/baton
-npm run seed -w @baton/api -- --demo   # reference data from the brief + demo users/tickets
-MASTER_KEY=$(head -c32 /dev/urandom | base64) npm run dev:api
+head -c32 /dev/urandom | base64 > /tmp/baton.key   # the seed and the API must share the key
+export MASTER_KEY_FILE=/tmp/baton.key DATA_DIR=/tmp/baton-data
+npm run seed -w @baton/api -- --demo   # reference data + demo users, queries and bleeds
+npm run dev:api
 npm run dev:web                        # http://localhost:5173
 TEST_DATABASE_URL=postgres://baton@127.0.0.1:5433/baton_test npm test
 ```
@@ -71,7 +103,8 @@ Demo accounts (password `Baton!demo2026`; two-factor is relaxed in demo seed onl
 |---|---|
 | agent@baton.local | Client Services Agent |
 | supervisor@baton.local | Client Services Supervisor |
-| preanalytical@baton.local / analytical@ / logistics@ / nursing@ | Department Responder |
+| preanalytical@baton.local / analytical@ / logistics@ | Department Responder (sample desk for PRE/ANA) |
+| nursing@baton.local / nurse2@baton.local | Nursing, field app at `/field` |
 | manager.pre@baton.local | Department Manager (Pre-Analytical) |
 | exec@baton.local | Management (read-only) |
 | admin@baton.local (`ChangeMe!2026`) | System Administrator |
@@ -122,6 +155,8 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
 ## Open items to confirm with JDJ
 
 1. The final time limits per category and priority (the brief says TBC; defaults are seeded and editable).
-2. Brief §8 (offline) is missing from the document. Phase 2 assumes offline checkpoint capture that syncs later.
+2. Brief §8 (offline) is missing from the document. It's built as offline capture that syncs later, keeping device time; please confirm.
 3. Bleed interval limits (all TBC except reporting at 90 min).
-4. LIS integration for requisition validation and "results released" (Phase 2 uses a manual release button, with an interface stub).
+4. LIS integration for requisition validation and "results released" (currently a manual release button on the sample desk).
+5. Photo legibility is checked by the nurse's preview-and-retake; there is no automatic scoring.
+6. Push notifications are off by decision (e-mail + in-app only). Nurses are alerted immediately only while the field app is open.

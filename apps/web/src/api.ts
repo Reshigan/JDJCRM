@@ -21,9 +21,10 @@ export type Lookups = {
   departments: { id: number; code: string; name: string }[];
   sites: { id: number; code: string; name: string; region: string }[];
   categories: { id: number; name: string; department_ids: number[]; clock: 'business' | 'wall'; limit_critical: number; limit_high: number; limit_normal: number }[];
-  organisations: { id: number; kind: 'practice' | 'hospital'; name: string; site_id: number | null }[];
+  organisations: { id: number; kind: 'practice' | 'hospital'; name: string; site_id: number | null; nurse_id: string | null }[];
   users: { id: string; name: string; role: Role; department_id: number }[];
   thresholds: [number, number, number];
+  bleed_limits: number[];
 };
 export const useLookups = () => useQuery<Lookups>({ queryKey: ['lookups'], queryFn: () => api('/lookups'), staleTime: 300_000 });
 

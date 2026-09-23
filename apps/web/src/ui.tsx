@@ -159,3 +159,26 @@ export const Empty = ({ children }: { children: ReactNode }) => (
 );
 
 export const ago = (d: string | Date) => formatMinutes((Date.now() - new Date(d).getTime()) / 60_000, true);
+
+/** Baton Bar: the six measured bleed intervals. Filled by % of limit, coloured by status, current segment pulses. */
+export function BatonBar({ intervals, labels, className }: { intervals: any[]; labels?: boolean; className?: string }) {
+  const col = (f: Flag) => (f === 'red' ? 'var(--red)' : f === 'amber' ? 'var(--amber)' : 'var(--green)');
+  return (
+    <div className={className}>
+      <div className="flex gap-1" role="img" aria-label={intervals.map((i) => `${i.label}: ${i.status}${i.status !== 'pending' ? `, ${Math.round(i.pct)}%` : ''}`).join('; ')}>
+        {intervals.map((i) => (
+          <div key={i.key} className="relative h-2 flex-1 overflow-hidden rounded-full bg-line" title={`${i.label} · ${i.status === 'pending' ? 'not started' : `${formatMinutes(i.used)} of ${formatMinutes(i.limit)}`}`}>
+            {i.status !== 'pending' && (
+              <div className={cx('absolute inset-y-0 left-0 rounded-full', i.status === 'running' && 'pulse')} style={{ width: `${i.status === 'done' ? 100 : Math.max(6, Math.min(100, i.pct))}%`, background: col(i.flag) }} />
+            )}
+          </div>
+        ))}
+      </div>
+      {labels && (
+        <div className="mt-1.5 grid grid-cols-6 gap-1 text-[11px] text-muted">
+          {intervals.map((i) => <span key={i.key} className={cx('truncate', i.status === 'running' && 'font-semibold text-text')}>{i.label}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}

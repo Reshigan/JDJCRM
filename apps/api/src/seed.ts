@@ -1,4 +1,5 @@
 // Reference data from the brief (idempotent). `--demo` adds demo users, hospitals and live tickets.
+import zlib from 'node:zlib';
 import { sql } from './db';
 import { hashPassword } from './crypto';
 import { migrate } from './migrate';
@@ -147,8 +148,99 @@ async function demoTickets() {
     }
   }
   await escalationTick();
+  await demoBleeds(app, as);
   await app.close();
   console.log('demo tickets created');
+}
+
+/** Placeholder "photo": a striped PNG, so the demo shows real images without real patients. */
+function demoPng(w = 480, h = 320, hue = 0) {
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const bar = y > 120 && y < 220 && x > 60 && x < 420 && (x * 7) % 11 < 5;
+      const v = bar ? 30 : 235 - ((x + y) % 40 === 0 ? 20 : 0);
+      raw.set([v, v, Math.max(0, v - hue)], y * (w * 3 + 1) + 1 + x * 3);
+    }
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data] as Uint8Array[]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(td));
+    return Buffer.concat([len, td, crc] as Uint8Array[]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))] as Uint8Array[]);
+}
+
+async function demoBleeds(app: any, as: (email: string) => Promise<(url: string, payload?: object) => Promise<any>>) {
+  const cs = await as('agent@baton.local');
+  const lk = await cs('/api/lookups');
+  const hosp = (n: string) => lk.organisations.find((o: any) => o.name === n);
+  const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+  const jar: Record<string, string> = {};
+  const cookie = async (email: string) => {
+    jar[email] ??= String((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: email, password: 'Baton!demo2026' } })).headers['set-cookie']).split(';')[0];
+    return jar[email];
+  };
+  const post = async (email: string, url: string, payload: object) => app.inject({ method: 'POST', url, payload, headers: { cookie: await cookie(email) } });
+  const capture = async (email: string, id: string, fields: Record<string, string>) => {
+    const B = 'demo';
+    const parts: Buffer[] = Object.entries(fields).map(([k, v]) => Buffer.from(`--${B}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`));
+    if (fields.outcome === 'successful')
+      for (const [k, hue] of [['requisition', 0], ['sticker', 60]] as const)
+        parts.push(Buffer.from(`--${B}\r\nContent-Disposition: form-data; name="${k}"; filename="${k}.png"\r\nContent-Type: image/png\r\n\r\n`), demoPng(480, 320, hue), Buffer.from('\r\n'));
+    parts.push(Buffer.from(`--${B}--\r\n`));
+    return app.inject({ method: 'POST', url: `/api/bleeds/${id}/capture`, payload: Buffer.concat(parts as Uint8Array[]), headers: { cookie: await cookie(email), 'content-type': `multipart/form-data; boundary=${B}` } });
+  };
+  // [hospital, nurse, patients, minutes since call, progress minutes: arrive, capture, receive, lab, release, file]
+  type Plan = { h: string; nurse: string; patients: string[]; opened: number; arrive?: number; capture?: number; receive?: number; lab?: number; release?: number; file?: number; override?: string; outcome?: string };
+  const plans: Plan[] = [
+    { h: 'Demo General Hospital', nurse: 'nursing@baton.local', patients: ['Maria Smith', 'Thabo Nkosi', 'Anna Pretorius'], opened: 25 },
+    { h: 'Demo Private Clinic', nurse: 'nursing@baton.local', patients: ['Sarah Jacobs'], opened: 180, arrive: 170, capture: 155, receive: 60, lab: 45 },
+    { h: 'Demo Coastal Hospital', nurse: 'nurse2@baton.local', patients: ['Peter Adams', 'Lindiwe Zulu'], opened: 300, arrive: 280, capture: 260, receive: 120, lab: 100, release: 30 },
+    { h: 'Demo General Hospital', nurse: 'nursing@baton.local', patients: ['David Botha'], opened: 60, arrive: 35, override: 'Main campus block C, GPS drifting' },
+    { h: 'Demo Private Clinic', nurse: 'nursing@baton.local', patients: ['Grace Molefe'], opened: 1560, arrive: 1530, capture: 1510, receive: 1450, lab: 1420, release: 1260, file: 1200 },
+    { h: 'Demo General Hospital', nurse: 'nursing@baton.local', patients: ['Joseph Mokoena'], opened: 90, arrive: 70, capture: 60, outcome: 'patient_refused' },
+  ];
+  const H = { lat: 0, lng: 0 };
+  for (const p of plans) {
+    const h = hosp(p.h);
+    const r = await cs('/api/bleed-requests', { hospital_id: h.id, requested_by: 'Ward sister', notes: p.patients.length > 2 ? 'Fasting bloods — before 10:00 please' : undefined,
+      patients: p.patients.map((n, i) => ({ patient_name: n, ward: `${3 + i}A`, bed: String(10 + i * 3), folder_no: `F-${70000 + Math.floor(Math.random() * 9999)}` })) });
+    await sql`update bleed_requests set created_at = ${ago(p.opened)} where id = ${r.id}`;
+    await sql`update bleeds set opened_at = ${ago(p.opened)} where request_id = ${r.id}`;
+    const at = (h2: any) => ({ ...H, lat: h2.lat, lng: h2.lng });
+    const hospital = (await sql`select lat, lng from organisations where id = ${h.id}`)[0];
+    const breach = 'Demo: traffic / backlog';
+    if (p.arrive != null)
+      await post(p.nurse, `/api/bleed-requests/${r.id}/arrive`, { ...(p.override ? { lat: hospital.lat + 0.006, lng: hospital.lng } : at(hospital)), accuracy: p.override ? 60 : 9, device_time: ago(p.arrive), override_reason: p.override, breach_reason: breach });
+    for (const id of r.bleed_ids) {
+      if (p.capture == null) continue;
+      const [b] = await sql`select patient_name, folder_no, ward, bed from bleeds where id = ${id}`;
+      const cr = await capture(p.nurse, id, p.outcome
+        ? { outcome: p.outcome, outcome_reason: 'Patient declined; ward informed', device_time: ago(p.capture) }
+        : { outcome: 'successful', patient_name: b.patient_name, folder_no: b.folder_no, ward: b.ward, bed: b.bed, requisition_no: `RQ-${400000 + Math.floor(Math.random() * 99999)}`, tubes: JSON.stringify([{ type: 'EDTA (purple)', count: 1 }, { type: 'SST (gold)', count: 2 }]), device_time: ago(p.capture), breach_reason: breach });
+      if (cr.statusCode !== 200) throw new Error(`demo capture failed: ${cr.body}`);
+      for (const [step, who, min, col] of [['receive', 'preanalytical@baton.local', p.receive, 'received_at'], ['lab_accept', 'analytical@baton.local', p.lab, 'lab_accepted_at'], ['release', 'analytical@baton.local', p.release, 'released_at']] as const) {
+        if (min == null) break;
+        await post(who, `/api/bleeds/${id}/step`, { step, breach_reason: breach });
+        await sql`update bleeds set ${sql(col)} = ${ago(min)} where id = ${id}`;
+      }
+      if (p.file != null) {
+        await post(p.nurse, '/api/bleeds/file', { bleed_ids: [id], ...at(hospital), accuracy: 11, device_time: ago(p.file), breach_reason: breach });
+        await post('agent@baton.local', `/api/bleeds/${id}/close`, {});
+      }
+    }
+  }
+  // Demo timestamps were back-dated after each step: keep breach reasons only on intervals that really overran.
+  const { bleedIntervals } = await import('@baton/core');
+  for (const b of await sql`select * from bleeds`) {
+    const keep = Object.fromEntries(Object.entries(b.breach_reasons).filter(([k]) => bleedIntervals(b).intervals[+k]?.flag === 'red'));
+    await sql`update bleeds set breach_reasons = ${sql.json(keep as any)} where id = ${b.id}`;
+  }
+  const { bleedEscalationTick } = await import('./escalation');
+  await bleedEscalationTick();
+  console.log('demo bleeds created');
 }
 
 if (/[\/]seed\.[jt]s$/.test(process.argv[1] ?? '')) {

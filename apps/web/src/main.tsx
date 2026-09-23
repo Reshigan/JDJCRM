@@ -10,6 +10,11 @@ import { NewTicket } from './pages/NewTicket';
 import { Ticket } from './pages/Ticket';
 import { Admin } from './pages/Admin';
 import { Account } from './pages/Account';
+import { Bleeds } from './pages/Bleeds';
+import { NewBleed } from './pages/NewBleed';
+import { Bleed } from './pages/Bleed';
+import { Samples } from './pages/Samples';
+import { FieldHome, FieldRequest, FieldShell } from './pages/Field';
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -22,6 +27,7 @@ const qc = new QueryClient({
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
+  { path: '/field', element: <FieldShell />, children: [{ index: true, element: <FieldHome /> }, { path: 'r/:id', element: <FieldRequest /> }] },
   {
     element: <Shell />,
     children: [
@@ -31,9 +37,15 @@ const router = createBrowserRouter([
       { path: 'tickets/:id', element: <Ticket /> },
       { path: 'admin/:tab?', element: <Admin /> },
       { path: 'account', element: <Account /> },
+      { path: 'bleeds', element: <Bleeds /> },
+      { path: 'bleeds/new', element: <NewBleed /> },
+      { path: 'bleeds/:id', element: <Bleed /> },
+      { path: 'samples', element: <Samples /> },
     ],
   },
 ]);
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js').catch(() => {});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

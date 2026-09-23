@@ -65,7 +65,9 @@ const SPECS: Spec[] = [
     { key: 'site_id', label: 'Site', type: 'select', options: sites, list: true },
     { key: 'address', label: 'Address' }, { key: 'phone', label: 'Phone' }, { key: 'email', label: 'E-mail', type: 'email' },
     { key: 'lat', label: 'Latitude', type: 'number' }, { key: 'lng', label: 'Longitude', type: 'number' },
-    { key: 'radius_m', label: 'Geofence radius (m)', type: 'number', list: true }, { key: 'active', label: 'Active', type: 'bool', list: true },
+    { key: 'radius_m', label: 'Geofence radius (m)', type: 'number', list: true },
+    { key: 'nurse_id', label: 'Allocated nurse', type: 'select', options: (lk) => lk.users.filter((u) => lk.departments.find((d) => d.id === u.department_id)?.code === 'NUR').map((u) => [u.id, u.name]), list: true, hint: 'Hospitals only: notified for every bleed request.' },
+    { key: 'active', label: 'Active', type: 'bool', list: true },
   ] },
   { res: 'holidays', label: 'Public holidays', pk: 'day', del: true, intro: 'Excluded from working-time clocks.', blank: {}, cols: [
     { key: 'day', label: 'Date', type: 'date', list: true, required: true, createOnly: true }, { key: 'name', label: 'Name', list: true, required: true },
@@ -76,7 +78,7 @@ const SPECS: Spec[] = [
     { key: 'department_id', label: 'Department', type: 'select', options: depts, list: true },
     { key: 'priority', label: 'Priority', type: 'number', list: true },
   ] },
-  { res: 'settings', label: 'Settings', pk: 'key', intro: 'escalation_thresholds: % of time limit for amber, red and management escalation. mfa_enforced_roles: roles that must use two-factor sign-in.', blank: {}, cols: [
+  { res: 'settings', label: 'Settings', pk: 'key', intro: 'escalation_thresholds: % of time limit for amber, red and management escalation. mfa_enforced_roles: roles that must use two-factor sign-in. bleed_limits: minutes for the six bleed intervals [response, bleed, logistics, receiving, processing, reporting].', blank: {}, cols: [
     { key: 'key', label: 'Key', list: true, required: true, createOnly: true }, { key: 'value', label: 'Value (JSON)', type: 'json', list: true, required: true },
   ] },
 ];
