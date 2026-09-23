@@ -299,7 +299,14 @@ export function FieldRequest() {
   const [busy, setBusy] = useState(false);
   const r = data?.find((x) => x.id === id);
   if (isLoading) return <div className="h-40 animate-pulse rounded-xl bg-surface-2" />;
-  if (!r) return <div className="space-y-3"><p className="text-sm text-muted">This request is complete or no longer allocated to you.</p><Link to="/field" className="text-brand">Back to my run</Link></div>;
+  // The last capture or filing removes the request from the run: keep the confirmation on screen.
+  if (!r)
+    return (
+      <div className="space-y-3">
+        {msg ? <p className="flex items-center gap-2 rounded-lg bg-ok-soft p-3 text-sm text-ok"><Check size={16} />{msg}</p> : <p className="text-sm text-muted">This request is complete or no longer allocated to you.</p>}
+        <Link to="/field" className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-brand text-sm font-medium text-brand-ink">Back to my run</Link>
+      </div>
+    );
 
   const done = (m: string) => { setMsg(m); setCapturing(null); setToFile([]); setBusy(false); qc.invalidateQueries({ queryKey: ['field'] }); };
   const geoSend = async (url: string, body: object, meta: any, okMsg: string) => {
