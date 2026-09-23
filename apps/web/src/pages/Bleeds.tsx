@@ -15,7 +15,9 @@ export function Bleeds() {
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
   const scope = params.get('scope') ?? 'open';
-  const { data, isLoading } = useQuery({ queryKey: ['bleeds', scope], queryFn: () => api<any[]>(`/bleeds?scope=${scope}`), refetchInterval: 20_000 });
+  const qs = new URLSearchParams({ ...Object.fromEntries(params), scope }).toString();
+  const drill = [...params.keys()].some((k) => k !== 'scope');
+  const { data, isLoading } = useQuery({ queryKey: ['bleeds', drill ? qs : scope], queryFn: () => api<any[]>(`/bleeds?${qs}`), refetchInterval: 20_000 });
 
   const rows = useMemo(
     () => [...(data ?? [])].sort((a, b) => Number(ENDED.includes(a.state)) - Number(ENDED.includes(b.state)) || RANK[b.flag as Flag] - RANK[a.flag as Flag] || +new Date(a.opened_at) - +new Date(b.opened_at)),
@@ -30,7 +32,7 @@ export function Bleeds() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Bleed board</h1>
-          <p className="mt-0.5 text-sm text-muted">Every hospital bleed in progress, timed across six intervals. Refreshes automatically.</p>
+          <p className="mt-0.5 text-sm text-muted">{drill ? <>Filtered from the dashboard · <button className="text-brand" onClick={() => setParams({}, { replace: true })}>clear filter</button></> : 'Every hospital bleed in progress, timed across six intervals. Refreshes automatically.'}</p>
         </div>
         {me && can(me.role, 'bleed.open') && <Button onClick={() => nav('/bleeds/new')}><Plus size={16} />New bleed request</Button>}
       </div>

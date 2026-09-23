@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
+import { createBrowserRouter, RouterProvider } from 'react-router';
 import './index.css';
 import { Shell } from './Shell';
 import { Login } from './pages/Login';
@@ -15,6 +15,10 @@ import { NewBleed } from './pages/NewBleed';
 import { Bleed } from './pages/Bleed';
 import { Samples } from './pages/Samples';
 import { FieldHome, FieldRequest, FieldShell } from './pages/Field';
+import { Dashboard } from './pages/Dashboard';
+import { Wall } from './pages/Wall';
+import { Search } from './pages/Search';
+import { Home } from './Shell';
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -27,11 +31,14 @@ const qc = new QueryClient({
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
+  { path: '/wall', element: <Wall /> },
   { path: '/field', element: <FieldShell />, children: [{ index: true, element: <FieldHome /> }, { path: 'r/:id', element: <FieldRequest /> }] },
   {
     element: <Shell />,
     children: [
-      { index: true, element: <Navigate to="/tickets" replace /> },
+      { index: true, element: <Home /> },
+      { path: 'dashboard/:tab?', element: <Dashboard /> },
+      { path: 'search', element: <Search /> },
       { path: 'tickets', element: <Tickets /> },
       { path: 'tickets/new', element: <NewTicket /> },
       { path: 'tickets/:id', element: <Ticket /> },

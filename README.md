@@ -11,7 +11,7 @@ Every query and every bleed gets a ticket number, a named owner at each stage an
 | Foundation: RBAC, local + AD sign-in with TOTP, hash-chained audit, admin configuration | ✅ Phase 1 |
 | Module A: query and ticket management | ✅ Phase 1 |
 | Module B: hospital bleed tickets, field PWA (geofence, encrypted photos, offline), sample desk | ✅ Phase 2 |
-| Central dashboard: live boards, analytics, Excel export, scheduled e-mails, Wall mode | Phase 3 |
+| Central dashboard: live boards, analytics, Excel export, scheduled e-mails, Wall mode, global search | ✅ Phase 3 |
 | Insights, retention jobs, Android wrap with mock-location detection | Phase 4 |
 
 | Ticket: department clocks, closure gate, audited timeline | Intake: live routing preview and repeat-complainant warning |
@@ -47,6 +47,34 @@ Every query and every bleed gets a ticket number, a named owner at each stage an
   - An unsuccessful bleed stops the clocks and waits for Client Services to close it.
   - A cancelled bleed closes with a reason, keeps the travel time and is excluded from turnaround statistics.
 - **Sample desk.** Pre-Analytical and the laboratory scan the BLD or requisition barcode with a keyboard-wedge scanner and record their stage.
+
+### Central dashboard
+
+![Wall mode](docs/screenshots/wall.png)
+
+| Live: today at a glance, active bleeds, open queries, breach register | Performance: stage times, compliance, volumes, drill-down |
+|---|---|
+| ![Live](docs/screenshots/dashboard-live.png) | ![Performance](docs/screenshots/dashboard-performance.png) |
+
+- **Opens on the live view** for Client Services and Management (brief §7).
+  - Six "today" tiles, the active bleed board and the open query board, both red-first.
+  - A **breach register** of every stage that went red today, with its reason, or "pending" while the stage is still running.
+  - Refreshes every 20 s.
+- **Wall mode** (`/wall`): a full-screen, dark, TV-legible version for the Client Services office.
+- **Performance.** Filters sit in one row: date range with presets, region, site/depot, hospital, department, nurse, category, priority and status. It covers:
+  - average and median time per bleed stage against its limit
+  - compliance per stage, site, hospital and nurse
+  - bleeds and compliance per day
+  - query volumes by category, site and complainant
+  - department first-response and resolution times
+  - repeat failures (same complainant, same category)
+  - root causes
+
+  Every chart has a hover/keyboard tooltip and a table view, and every row drills down to the underlying tickets. Figures are computed with the same clock code as the tickets, so the dashboard and a ticket never disagree.
+- **Department managers** see the dashboard for their own department only. Other departments have no dashboard.
+- **Export to Excel** (supervisor, management): summary, stages, compliance breakdowns, department performance, repeats, plus every query and bleed in the period. Bleeds show a patient reference, not full names. Every export is audited.
+- **Scheduled e-mails.** A daily operations summary (yesterday) and a monthly management summary (last month), each with the workbook attached. Set the distribution lists in Admin → Settings (`report_daily_recipients`, `report_monthly_recipients`, `report_send_hour`, SAST). Each report is sent exactly once, even with several workers.
+- **Full search** (header, `/` key) across queries and bleeds: ticket number, patient, requisition, hospital or complainant, within the caller's scope.
 
 ## On-premise install
 

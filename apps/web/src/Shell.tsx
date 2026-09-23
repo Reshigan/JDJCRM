@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Droplet, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
+import { Bell, Droplet, Gauge, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
 import { can, ROLES } from '@baton/core';
 import { api, useLookups, useMe } from './api';
 import { ago, BatonMark, Button, cx } from './ui';
@@ -100,6 +100,7 @@ export function Shell() {
           </span>
         </Link>
         <nav className="flex flex-col gap-1">
+          {(can(me.role, 'dashboard.view') || me.role === 'dept_manager') && <NavLink to="/dashboard" className={link}><Gauge size={17} />Dashboard</NavLink>}
           {me.role !== 'admin' && (
             <NavLink to="/tickets" end className={link}><Inbox size={17} />{can(me.role, 'tickets.view_all') ? 'Query board' : 'My department'}</NavLink>
           )}
@@ -127,7 +128,7 @@ export function Shell() {
           {me.role !== 'admin' && (
             <form
               className="relative max-w-md min-w-0 flex-1"
-              onSubmit={(e) => { e.preventDefault(); nav(`/tickets?q=${encodeURIComponent(search.current!.value)}`); }}
+              onSubmit={(e) => { e.preventDefault(); nav(`/search?q=${encodeURIComponent(search.current!.value)}`); }}
             >
               <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
               <input
@@ -151,4 +152,11 @@ export function Shell() {
       </div>
     </div>
   );
+}
+
+/** Landing: the dashboard for Client Services and Management (brief §7 "opens on a live operational view"). */
+export function Home() {
+  const { data: me } = useMe();
+  if (!me) return null;
+  return <Navigate to={can(me.role, 'dashboard.view') ? '/dashboard' : '/tickets'} replace />;
 }
