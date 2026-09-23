@@ -6,6 +6,7 @@ import { authPlugin } from './auth';
 import { HttpError } from './db';
 import { adminRoutes } from './routes/admin';
 import { bleedRoutes } from './routes/bleeds';
+import { dashboardRoutes } from './routes/dashboard';
 import { miscRoutes } from './routes/misc';
 import { ticketRoutes } from './routes/tickets';
 
@@ -33,5 +34,6 @@ export async function buildApp() {
   ticketRoutes(app);
   adminRoutes(app);
   bleedRoutes(app);
+  dashboardRoutes(app);
   return app;
 }

@@ -11,6 +11,7 @@ import { decryptFile, encryptFile } from '../crypto';
 import { env } from '../env';
 import { notify } from '../notify';
 import { limitFor, slaContext, type SlaContext } from '../sla';
+import { range } from '../analytics';
 
 const keys = <T extends object>(o: T) => Object.keys(o) as [keyof T & string, ...(keyof T & string)[]];
 const text = (max = 20_000) => z.string().trim().min(1).max(max);
@@ -92,8 +93,13 @@ export function ticketRoutes(app: FastifyInstance) {
         priority: z.enum(keys(PRIORITIES)).optional(),
         flag: z.enum(['green', 'amber', 'red']).optional(),
         state: z.string().max(30).optional(),
+        category_id: z.coerce.number().int().optional(),
+        site_id: z.coerce.number().int().optional(),
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       })
       .parse(req.query);
+    const [a, b] = q.from && q.to ? range({ from: q.from, to: q.to }) : [null, null];
     const all = can(req.user.role, 'tickets.view_all');
     if (!all && !req.user.department_id) return [];
     const dept = all ? q.department_id ?? null : req.user.department_id;
@@ -113,6 +119,9 @@ export function ticketRoutes(app: FastifyInstance) {
         and ${q.scope === 'open' ? sql`t.state <> 'closed'` : q.scope === 'closed' ? sql`t.state = 'closed'` : sql`true`}
         and (${q.state ?? null}::text is null or t.state = ${q.state ?? null})
         and (${q.priority ?? null}::text is null or t.priority = ${q.priority ?? null})
+        and (${q.category_id ?? null}::int is null or t.category_id = ${q.category_id ?? null})
+        and (${q.site_id ?? null}::int is null or t.site_id = ${q.site_id ?? null})
+        and (${a}::timestamptz is null or (t.created_at >= ${a} and t.created_at < ${b}))
         and (${dept}::int is null or exists (select 1 from assignments a where a.ticket_id = t.id and a.department_id = ${dept} and a.state <> 'cancelled'))
         and (${like}::text is null or t.number ilike ${like} or t.complainant_name ilike ${like} or t.patient_name ilike ${like}
              or t.requisition_no ilike ${like} or o.name ilike ${like})

@@ -11,6 +11,7 @@ import { audit, fail, sql, type Sql } from '../db';
 import { decryptFile, encryptFile } from '../crypto';
 import { env } from '../env';
 import { notify } from '../notify';
+import { range } from '../analytics';
 
 const text = (max = 2000) => z.string().trim().min(1).max(max);
 const opt = (max = 200) => z.string().trim().max(max).optional().transform((v) => v || null);
@@ -134,12 +135,27 @@ export function bleedRoutes(app: FastifyInstance) {
   // --- boards ---
   app.get('/api/bleeds', async (req) => {
     requirePerm(req, 'dashboard.view');
-    const q = z.object({ scope: z.enum(['open', 'closed', 'all']).default('open'), q: z.string().trim().max(100).optional() }).parse(req.query);
+    const q = z
+      .object({
+        scope: z.enum(['open', 'closed', 'all']).default('open'),
+        q: z.string().trim().max(100).optional(),
+        hospital_id: z.coerce.number().int().optional(),
+        site_id: z.coerce.number().int().optional(),
+        nurse_id: z.uuid().optional(),
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      })
+      .parse(req.query);
     const like = q.q ? `%${q.q}%` : null;
+    const [a, z2] = q.from && q.to ? range({ from: q.from, to: q.to }) : [null, null];
     const rows = await sql`${BASE}
       where ${q.scope === 'open' ? sql`b.closed_at is null` : q.scope === 'closed' ? sql`b.closed_at is not null` : sql`true`}
         and (${like}::text is null or b.number ilike ${like} or r.number ilike ${like} or b.patient_name ilike ${like}
              or b.requisition_no ilike ${like} or h.name ilike ${like})
+        and (${q.hospital_id ?? null}::int is null or r.hospital_id = ${q.hospital_id ?? null})
+        and (${q.site_id ?? null}::int is null or r.site_id = ${q.site_id ?? null})
+        and (${q.nurse_id ?? null}::uuid is null or r.nurse_id = ${q.nurse_id ?? null})
+        and (${a}::timestamptz is null or (b.opened_at >= ${a} and b.opened_at < ${z2}))
       order by b.opened_at desc limit 500`;
     const cfg = await bleedConfig(sql);
     return rows.map((b) => decorate(b, cfg));

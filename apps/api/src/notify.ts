@@ -10,10 +10,10 @@ const mailer = env.smtp.host
     })
   : null;
 
-export async function sendMail(to: string[], subject: string, text: string) {
+export async function sendMail(to: string[], subject: string, text: string, attachments?: { filename: string; content: Buffer }[]) {
   if (!to.length) return;
-  if (!mailer) return console.log(`[mail] to=${to.join(',')} subject=${subject}`);
-  await mailer.sendMail({ from: env.smtp.from, to, subject, text }).catch((e) => console.error('[mail]', e.message));
+  if (!mailer) return console.log(`[mail] to=${to.join(',')} subject=${subject}${attachments ? ` +${attachments.length} attachment(s)` : ''}`);
+  await mailer.sendMail({ from: env.smtp.from, to, subject, text, attachments }).catch((e) => console.error('[mail]', e.message));
 }
 
 type Audience = { users?: string[]; departments?: number[]; roles?: string[]; deptRoles?: string[] };
