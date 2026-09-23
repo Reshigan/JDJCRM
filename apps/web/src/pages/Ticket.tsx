@@ -3,11 +3,12 @@ import { Link, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Check, CircleDashed, FileText, Lock, Paperclip, Phone, RotateCcw, Shuffle, Undo2, X } from 'lucide-react';
 import {
-  ASSIGNMENT_STATES, CHANNELS, CLOSURE_REASONS, closureChecklist, COMPLAINANT_TYPES, formatMinutes, PRIORITIES, QUERY_STATES, ROOT_CAUSES, sast,
+  ASSIGNMENT_STATES, can, CHANNELS, CLOSURE_REASONS, closureChecklist, COMPLAINANT_TYPES, formatMinutes, PRIORITIES, QUERY_STATES, ROOT_CAUSES, sast,
   type QueryState,
 } from '@baton/core';
 import { api, formValues, useLookups, useMe } from '../api';
 import { Badge, Button, Card, cx, DeptClock, ErrorText, Field, FlagPill, Input, Modal, PRIORITY_TONE, Select, StatePill, Textarea } from '../ui';
+import { Canned, MentionInput, withMentions } from '../tools';
 
 const STEPS = Object.keys(QUERY_STATES) as QueryState[];
 
@@ -26,7 +27,8 @@ const EVENT: Record<string, (d: any) => string> = {
   reassigned: (d) => `Reassigned ${d.from} → ${d.to}: ${d.reason}`,
   reprioritised: (d) => `Priority ${d.from} → ${d.to}: ${d.reason}`,
   escalated: (d) => `${['', 'Amber', 'Red breach', 'Escalated to management'][d.level]} · ${d.department} at ${d.pct}%`,
-  note: () => 'Added a note',
+  note: (d) => (d.mentions?.length ? `Added a note · mentioned ${d.mentions.join(', ')}` : 'Added a note'),
+  effectiveness_checked: (d) => `Effectiveness check: corrective action ${d.result === 'effective' ? 'effective' : 'NOT effective'} · ${d.note}`,
   attachment_added: (d) => `Attached ${d.filename}`,
 };
 
@@ -112,8 +114,8 @@ function Assignment({ t, a, act }: { t: any; a: any; act: ReturnType<typeof useA
           className="mt-4 grid gap-3 border-t border-line pt-4"
           onSubmit={(e) => act.mutate({ action: 'respond', assignment_id: a.id, ...formValues(e) }, { onSuccess: () => setResponding(false) })}
         >
-          <Field label="Findings" required><Textarea name="findings" required defaultValue={a.findings ?? ''} /></Field>
-          <Field label="Corrective action" required><Textarea name="corrective_action" required rows={3} defaultValue={a.corrective_action ?? ''} /></Field>
+          <div><Field label="Findings" required><Textarea name="findings" required defaultValue={a.findings ?? ''} /></Field><Canned target="findings" /></div>
+          <div><Field label="Corrective action" required><Textarea name="corrective_action" required rows={3} defaultValue={a.corrective_action ?? ''} /></Field><Canned target="corrective_action" /></div>
           {breached && (
             <Field label="Breach reason" required hint="The time limit has passed. Say why, so it can be reported.">
               <Input name="breach_reason" required defaultValue={a.breach_reason ?? ''} />
@@ -128,7 +130,7 @@ function Assignment({ t, a, act }: { t: any; a: any; act: ReturnType<typeof useA
 
       <Modal open={returning} onClose={() => setReturning(false)} title={`Return to ${a.department}`}>
         <form className="space-y-4" onSubmit={(e) => act.mutate({ action: 'return', assignment_id: a.id, ...formValues(e) }, { onSuccess: () => setReturning(false) })}>
-          <Field label="Why is the response inadequate?" required><Textarea name="reason" required /></Field>
+          <div><Field label="Why is the response inadequate?" required><Textarea name="reason" required /></Field><Canned target="reason" /></div>
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button><Button>Return</Button></div>
         </form>
       </Modal>
@@ -139,6 +141,8 @@ function Assignment({ t, a, act }: { t: any; a: any; act: ReturnType<typeof useA
 function ClosureGate({ t, act }: { t: any; act: ReturnType<typeof useAct> }) {
   const [reason, setReason] = useState('');
   const [root, setRoot] = useState('');
+  const [due, setDue] = useState('');
+  const [effective, setEffective] = useState<boolean | null>(null);
   const [satisfied, setSatisfied] = useState<boolean | null>(null);
   const [reopening, setReopening] = useState(false);
   const accepted = t.assignments.filter((a: any) => a.state === 'accepted');
@@ -152,7 +156,32 @@ function ClosureGate({ t, act }: { t: any; act: ReturnType<typeof useAct> }) {
           <div className="flex justify-between"><dt className="text-muted">Reason</dt><dd>{CLOSURE_REASONS[t.closure_reason as keyof typeof CLOSURE_REASONS]}</dd></div>
           <div className="flex justify-between"><dt className="text-muted">Root cause</dt><dd>{ROOT_CAUSES[t.root_cause as keyof typeof ROOT_CAUSES]}</dd></div>
           <div className="flex justify-between"><dt className="text-muted">Closed</dt><dd className="num">{sast(t.closed_at)}</dd></div>
+          {t.effectiveness_due && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Effectiveness check</dt>
+              <dd className="text-right">
+                {t.effectiveness_result
+                  ? <Badge tone={t.effectiveness_result === 'effective' ? 'green' : 'red'}>{t.effectiveness_result === 'effective' ? 'Effective' : 'Not effective'}</Badge>
+                  : <span className="num">due {t.effectiveness_due}</span>}
+              </dd>
+            </div>
+          )}
+          {t.effectiveness_note && <p className="rounded-lg bg-surface-2 p-2.5 text-sm">{t.effectiveness_note}</p>}
         </dl>
+        {t.actions.includes('check_effectiveness') && (
+          <form
+            className="mt-4 space-y-3 border-t border-line pt-4"
+            onSubmit={(e) => { const v = formValues(e); act.mutate({ action: 'check_effectiveness', result: effective ? 'effective' : 'not_effective', note: v.note }, { onSuccess: () => setEffective(null) }); }}
+          >
+            <div className="text-sm font-semibold">Did the corrective action work?</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setEffective(true)} className={cx('h-10 rounded-lg border text-sm font-medium', effective === true ? 'border-ok bg-ok-soft text-ok' : 'border-line')}>Effective</button>
+              <button type="button" onClick={() => setEffective(false)} className={cx('h-10 rounded-lg border text-sm font-medium', effective === false ? 'border-bad bg-bad-soft text-bad' : 'border-line')}>Not effective</button>
+            </div>
+            <Field label="Evidence" required><Textarea name="note" required rows={2} placeholder="e.g. No repeat in 30 days; audit of fridge log clean" /></Field>
+            <Button className="w-full" disabled={effective === null || act.isPending}>Record check</Button>
+          </form>
+        )}
         {t.actions.includes('reopen') && <Button variant="outline" className="mt-4 w-full" onClick={() => setReopening(true)}><RotateCcw size={15} />Reopen</Button>}
         <Modal open={reopening} onClose={() => setReopening(false)} title="Reopen ticket">
           <form className="space-y-4" onSubmit={(e) => {
@@ -196,7 +225,7 @@ function ClosureGate({ t, act }: { t: any; act: ReturnType<typeof useAct> }) {
           <Field label="Called at" required><Input name="called_at" type="datetime-local" required defaultValue={localNow()} /></Field>
           <Field label="Spoke to" required><Input name="spoken_to" required defaultValue={t.complainant_name} /></Field>
           <Field label="Number used" required><Input name="number_used" required defaultValue={t.contact_phone ?? ''} /></Field>
-          <Field label="What was said" required><Textarea name="summary" required rows={3} /></Field>
+          <div><Field label="What was said" required><Textarea name="summary" required rows={3} /></Field><Canned target="summary" /></div>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setSatisfied(true)} className={cx('h-10 rounded-lg border text-sm font-medium', satisfied === true ? 'border-ok bg-ok-soft text-ok' : 'border-line')}>Satisfied</button>
             <button type="button" onClick={() => setSatisfied(false)} className={cx('h-10 rounded-lg border text-sm font-medium', satisfied === false ? 'border-bad bg-bad-soft text-bad' : 'border-line')}>Not satisfied</button>
@@ -219,7 +248,10 @@ function ClosureGate({ t, act }: { t: any; act: ReturnType<typeof useAct> }) {
           <Field label="Root cause" required hint="Feeds quality indicator reporting.">
             <Select value={root} onChange={(e) => setRoot(e.target.value)}><option value="">Choose…</option>{Object.entries(ROOT_CAUSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>
           </Field>
-          <Button className="w-full" disabled={!items.every((i) => i.ok) || act.isPending} onClick={() => act.mutate({ action: 'close', closure_reason: reason, root_cause: root })}>
+          <Field label="Effectiveness check" hint="Optional. On this date you'll be reminded to confirm the corrective action worked.">
+            <Input type="date" value={due} min={tomorrow()} onChange={(e) => setDue(e.target.value)} />
+          </Field>
+          <Button className="w-full" disabled={!items.every((i) => i.ok) || act.isPending} onClick={() => act.mutate({ action: 'close', closure_reason: reason, root_cause: root, effectiveness_due: due || undefined })}>
             <Lock size={15} />Close ticket
           </Button>
         </div>
@@ -241,6 +273,8 @@ const DeptPicks = ({ list }: { list: any[] }) => (
   </div>
 );
 
+const tomorrow = () => new Date(Date.now() + 26 * 3_600_000).toISOString().slice(0, 10); // SAST tomorrow
+
 const localNow = () => {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
@@ -256,6 +290,7 @@ export function Ticket() {
   const [modal, setModal] = useState<'reassign' | 'reprioritise' | null>(null);
   const [upErr, setUpErr] = useState<unknown>(null);
   const addNote = useNoteMutation(id, qc);
+  const [note, setNote] = useState('');
 
   if (isLoading) return <div className="h-40 animate-pulse rounded-xl bg-surface-2" />;
   if (error || !t) return <ErrorText error={error ?? new Error('Not found')} />;
@@ -272,6 +307,8 @@ export function Ticket() {
     } catch (e) { setUpErr(e); }
   };
   const readOnly = me?.role === 'management';
+  const people = (lk?.users ?? []).filter((u) => u.id !== me?.id && (can(u.role, 'tickets.view_all') || t.assignments.some((a: any) => a.department_id === u.department_id && a.state !== 'cancelled')));
+  const names = (lk?.users ?? []).map((u) => u.name);
   const running = t.assignments.filter((a: any) => ['assigned', 'in_progress', 'responded'].includes(a.state));
 
   return (
@@ -346,7 +383,7 @@ export function Ticket() {
               {t.notes.map((n: any) => (
                 <div key={n.id} className="rounded-lg bg-surface-2 p-3 text-sm">
                   <div className="text-xs text-muted">{n.author} · <span className="num">{sast(n.created_at)}</span></div>
-                  <p className="mt-1 whitespace-pre-wrap">{n.body}</p>
+                  <p className="mt-1 whitespace-pre-wrap">{withMentions(n.body, names)}</p>
                 </div>
               ))}
               {t.attachments.length > 0 && (
@@ -361,8 +398,8 @@ export function Ticket() {
                 </ul>
               )}
               {!readOnly && t.state !== 'closed' && (
-                <form className="flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { const v = formValues(e); (e.currentTarget as HTMLFormElement).reset(); addNote.mutate(v.body); }}>
-                  <Input name="body" placeholder="Add a note…" required />
+                <form className="flex flex-col gap-2 sm:flex-row" onSubmit={(e) => { e.preventDefault(); addNote.mutate(note, { onSuccess: () => setNote('') }); }}>
+                  <MentionInput value={note} onChange={setNote} people={people} placeholder="Add a note… type @ to mention a colleague" required />
                   <div className="flex gap-2">
                     <Button variant="outline">Add note</Button>
                     <label className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-line px-3 text-sm hover:bg-surface-2">

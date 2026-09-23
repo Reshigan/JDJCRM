@@ -49,8 +49,19 @@ export async function seed(demo: boolean, tickets = demo) {
     await sql`insert into users (email, name, role, password_hash) values (${adminEmail}, 'System Administrator', 'admin', ${hashPassword(pw)})`;
     console.log(`admin created: ${adminEmail}`);
   }
+  const [canned] = await sql`select count(*)::int as n from canned_responses`;
+  if (!canned.n) await sql`insert into canned_responses ${sql(CANNED.map(([title, body]) => ({ title, body })))}`;
   if (demo) await seedDemo(dept, tickets);
 }
+
+// Starter wording; edit in Administration → Canned responses.
+const CANNED = [
+  ['Sample located', 'The sample was located and processed. Results were released and the report sent to the requesting doctor.'],
+  ['Recollection arranged', 'The sample could not be processed. A recollection has been arranged and the patient contacted.'],
+  ['Courier delay', 'The collection was delayed by the courier route. The route has been reviewed and the driver briefed.'],
+  ['Staff briefed', 'The staff member involved has been briefed on the correct procedure, and the incident recorded for training.'],
+  ['Apology given', 'Apologised to the client for the inconvenience and explained the corrective action taken.'],
+];
 
 async function seedDemo(dept: Record<string, number>, tickets: boolean) {
   await sql`update settings set value = '[]' where key = 'mfa_enforced_roles'`; // demo convenience only
@@ -122,6 +133,7 @@ async function demoTickets() {
     ['Account, billing', 'Dr A. Naidoo', 'Dr A. Naidoo', 'doctor', 'normal', 'Patient billed twice for the same lipid panel.', 1, 'new'],
     ['Incorrect patient details', 'Demo Private', 'Ward clerk', 'hospital', 'normal', 'Date of birth wrong on report for requisition RQ-448120.', 26, 'responded'],
     ['Phlebotomy service', 'Demo Coastal', 'Unit manager', 'hospital', 'normal', 'Patient complained about bruising after bleed.', 50, 'closed'],
+    ['Result queried as incorrect', 'Parkview', 'L Mahlangu', 'doctor', 'normal', 'Asked for a copy of the repeat potassium.', 1.5, 'new'], // a duplicate of Dr L. Mahlangu in the register
     ['Compliment', 'Parkview', 'Dr L. Mahlangu', 'doctor', 'normal', 'Thanks to the night team for the fast troponin turnaround.', 0.2, 'new'],
   ];
   for (const [c, o, name, type, priority, description, hoursAgo, progress] of demo) {
@@ -144,7 +156,8 @@ async function demoTickets() {
       await cs(`/api/tickets/${id}/actions`, { action: 'review' });
       for (const a of t.assignments) await cs(`/api/tickets/${id}/actions`, { action: 'accept', assignment_id: a.id });
       await cs(`/api/tickets/${id}/actions`, { action: 'log_call', called_at: new Date().toISOString(), spoken_to: name, number_used: '012 555 0100', summary: 'Apologised and explained corrective action.', satisfied: true });
-      await cs(`/api/tickets/${id}/actions`, { action: 'close', closure_reason: 'resolved_corrective', root_cause: 'staff_conduct' });
+      await cs(`/api/tickets/${id}/actions`, { action: 'close', closure_reason: 'resolved_corrective', root_cause: 'staff_conduct', effectiveness_due: '2099-01-01' });
+      await sql`update tickets set effectiveness_due = current_date - 1 where id = ${id}`; // an effectiveness check already due
     }
   }
   await escalationTick();

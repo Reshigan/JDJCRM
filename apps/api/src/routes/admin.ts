@@ -15,6 +15,7 @@ const R: Record<string, Res> = {
   categories: { cols: ['name', 'department_ids', 'clock', 'limit_critical', 'limit_high', 'limit_normal', 'active'], order: 'name' },
   ad_groups: { cols: ['group_dn', 'role', 'department_id', 'priority'], del: true, order: 'priority' },
   settings: { pk: 'key', cols: ['key', 'value'], json: ['value'], order: 'key' },
+  canned_responses: { cols: ['title', 'body', 'department_id', 'active'], del: true, order: 'title' },
   users: { cols: ['email', 'name', 'role', 'department_id', 'site_id', 'auth', 'active'], order: 'name' },
 };
 

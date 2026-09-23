@@ -225,18 +225,56 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
 - **Operations.**
   - The worker writes a heartbeat every minute. If it stops, every API instance notices, and admins and supervisors are alerted (at most hourly).
   - **Administration → System status** shows worker health, last backup, the audit chain, disk space, file store, sessions and migrations.
+
+### Register, quality and productivity
+
+- **Client register** (brief §5.2, **Client register** in the menu). Every complainant is filed once, under their practice or hospital, when their first query is logged. Intake suggests existing entries with their practice and history. Picking one links the new query to it.
+  - **Duplicates.** Entries whose names match once titles and punctuation are ignored ("Dr L. Mahlangu" and "L Mahlangu") are listed for a Client Services supervisor. They choose the entry to keep; the others merge into it, their queries move with them, and the merge is audited.
+  - Shared phone numbers alone never mark a duplicate: a practice's switchboard is shared by everyone there.
+- **Corrective-action effectiveness** (ISO 15189 quality indicator).
+  - At closure, Client Services can set a date to check that the corrective action worked.
+  - On that date the person who closed the ticket, and CS supervisors, are reminded once.
+  - The result (effective or not, with evidence) is recorded on the closed ticket. "Not effective" alerts CS supervisors and the managers of the responding departments.
+  - **Dashboard → Quality** lists the checks due and overdue, and the effectiveness rate over 12 months.
+- **Productivity.**
+  - **@mentions** in ticket notes. Only colleagues who can see the ticket are suggested and notified.
+  - **Canned responses** for findings, corrective actions, returns and call notes. Administrators edit them in Administration → Canned responses, for everyone or per department.
+  - **Saved views** on the query and bleed boards: save the current filters under a name; each user has their own.
+  - **Bulk close** of ended bleeds (report filed or unsuccessful), with a confirmation that lists them.
+- **Scale.**
+  - Open work is always shown whole. Closed history pages by date ("Load older").
+  - Trigram indexes serve search.
+  - `npm run loadtest -w @baton/api` builds **100,000 queries and 20,000 bleeds** in a throwaway database. It then times every board, search, dashboard and export path against a response-time budget, and CI runs it on every push.
+  - It found and fixed a slow path: 90-day analytics went from 6.7 s to 0.7 s.
+
+  | Path (100k queries, 20k bleeds) | p50 |
+  |---|---|
+  | Query board, open | 60 ms |
+  | Closed history, first page | 7 ms |
+  | Search | 80–210 ms |
+  | Live dashboard | 70 ms |
+  | Performance, 30 / 90 days / 12 months | 0.24 / 0.65 / 3.4 s |
+  | Excel export, 30 days | 1.5 s |
+
 - **Tests.**
-  - 52 API/DB integration tests.
-  - 7 browser journeys (`apps/e2e`, Playwright). They cover the full query lifecycle, the full bleed lifecycle with the capture done **with the network off** and synced afterwards, the geofence override, live push, dashboard/export/wall, role boundaries and system status.
-  - CI runs them against the dev servers **and** against the real Docker stack behind Caddy/HTTPS, including a backup/restore drill.
+  - 59 API/DB integration tests.
+  - 10 browser journeys (`apps/e2e`, Playwright). They cover:
+    - the full query lifecycle, including the effectiveness check;
+    - the full bleed lifecycle, with the capture done **with the network off** and synced afterwards;
+    - the geofence override;
+    - live push;
+    - dashboard, export and wall mode;
+    - role boundaries and system status;
+    - register merge, mentions, canned responses, saved views and bulk close.
+  - CI runs them against the dev servers **and** against the real Docker stack behind Caddy/HTTPS, including a backup/restore drill, plus the load test.
 
 ## Open items to confirm with JDJ
 
 1. The final time limits per category and priority (the brief says TBC; defaults are seeded and editable).
 2. Brief §8 (offline) is missing from the document. It's built as offline capture that syncs later, keeping device time; please confirm.
 3. Bleed interval limits (all TBC except reporting at 90 min).
-4. LIS integration for requisition validation and "results released" (currently a manual release button on the sample desk).
-5. Photo legibility is checked by the nurse's preview-and-retake; there is no automatic scoring.
+4. Which LIS JDJ runs, and its protocol, so the generic signed webhook and requisition adapter ([docs/LIS.md](docs/LIS.md)) can be pointed at it.
+5. The photo sharpness threshold (currently a blur score of 60) should be tuned on real phone photos of requisitions.
 6. Push notifications are off by decision (e-mail + in-app only). Nurses are alerted immediately only while the field app is open.
 7. Retention periods for bleed photos and attachments (off by default). Set them to match JDJ's records policy.
 8. Department managers currently get a dashboard for their own department; brief rule 2 could be read as excluding them.

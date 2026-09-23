@@ -10,7 +10,7 @@ type Opt = [string | number, string][];
 type Col = {
   key: string;
   label: string;
-  type?: 'text' | 'email' | 'number' | 'bool' | 'select' | 'multi' | 'hours' | 'json' | 'date' | 'password' | 'minutes';
+  type?: 'long' | 'text' | 'email' | 'number' | 'bool' | 'select' | 'multi' | 'hours' | 'json' | 'date' | 'password' | 'minutes';
   options?: (lk: Lookups) => Opt;
   list?: boolean; // show in table
   required?: boolean;
@@ -67,6 +67,12 @@ const SPECS: Spec[] = [
     { key: 'lat', label: 'Latitude', type: 'number' }, { key: 'lng', label: 'Longitude', type: 'number' },
     { key: 'radius_m', label: 'Geofence radius (m)', type: 'number', list: true },
     { key: 'nurse_id', label: 'Allocated nurse', type: 'select', options: (lk) => lk.users.filter((u) => lk.departments.find((d) => d.id === u.department_id)?.code === 'NUR').map((u) => [u.id, u.name]), list: true, hint: 'Hospitals only: notified for every bleed request.' },
+    { key: 'active', label: 'Active', type: 'bool', list: true },
+  ] },
+  { res: 'canned_responses', label: 'Canned responses', del: true, intro: 'Standard wording staff can insert into responses, call notes and returns. Leave the department empty to offer it to everyone.', blank: { active: true }, cols: [
+    { key: 'title', label: 'Title', list: true, required: true },
+    { key: 'body', label: 'Text', type: 'long', required: true },
+    { key: 'department_id', label: 'Department', type: 'select', options: depts, list: true },
     { key: 'active', label: 'Active', type: 'bool', list: true },
   ] },
   { res: 'holidays', label: 'Public holidays', pk: 'day', del: true, intro: 'Excluded from working-time clocks.', blank: {}, cols: [
@@ -139,6 +145,8 @@ function Editor({ c, value, onChange, lk, isNew }: { c: Col; value: any; onChang
       );
     case 'json':
       return <Textarea className="num" rows={3} defaultValue={JSON.stringify(value ?? null)} onChange={(e) => { try { onChange(JSON.parse(e.target.value)); } catch {} }} />;
+    case 'long':
+      return <Textarea rows={4} value={value ?? ''} onChange={(e) => onChange(e.target.value)} required={c.required} />;
     case 'number':
       return <Input type="number" step="any" value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? null : +e.target.value)} />;
     default:
@@ -189,7 +197,7 @@ function Resource({ spec, lk }: { spec: Spec; lk: Lookups }) {
           <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate(edit); }}>
             <div className="grid gap-4 sm:grid-cols-2">
               {spec.cols.map((c) => (
-                <Field key={c.key} label={c.label} required={c.required} hint={c.hint} className={cx((c.type === 'multi' || c.type === 'hours' || c.type === 'json') && 'sm:col-span-2')}>
+                <Field key={c.key} label={c.label} required={c.required} hint={c.hint} className={cx((c.type === 'multi' || c.type === 'hours' || c.type === 'json' || c.type === 'long') && 'sm:col-span-2')}>
                   <Editor c={c} lk={lk} isNew={edit.isNew} value={edit.row[c.key]} onChange={(v) => setEdit({ ...edit, row: { ...edit.row, [c.key]: v } })} />
                 </Field>
               ))}

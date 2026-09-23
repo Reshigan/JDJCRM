@@ -23,7 +23,7 @@ export type AssignmentState = keyof typeof ASSIGNMENT_STATES;
 
 export type Actor = { role: Role; department_id: number | null };
 export type AssignmentLike = { state: AssignmentState; department_id: number };
-export type TicketLike = { state: QueryState };
+export type TicketLike = { state: QueryState; effectiveness_due?: string | null; effectiveness_at?: string | Date | null };
 export type CallLike = { cycle: number; satisfied: boolean };
 
 const active = (as: AssignmentLike[]) => as.filter((a) => a.state !== 'cancelled');
@@ -37,7 +37,7 @@ export function deriveState(current: QueryState, as: AssignmentLike[]): QuerySta
   return 'assigned';
 }
 
-export type TicketAction = 'review' | 'log_call' | 'close' | 'reopen' | 'reassign' | 'reprioritise';
+export type TicketAction = 'review' | 'log_call' | 'close' | 'reopen' | 'reassign' | 'reprioritise' | 'check_effectiveness';
 export type AssignmentAction = 'acknowledge' | 'respond' | 'return' | 'accept' | 'assign_user';
 
 export function ticketActions(t: TicketLike, as: AssignmentLike[], u: Actor): TicketAction[] {
@@ -46,6 +46,7 @@ export function ticketActions(t: TicketLike, as: AssignmentLike[], u: Actor): Ti
   if (can(u.role, 'ticket.review') && t.state === 'under_review' && allIn(as, ['accepted'])) out.push('log_call');
   if (can(u.role, 'ticket.close') && t.state === 'client_contacted') out.push('close');
   if (can(u.role, 'ticket.reopen') && t.state === 'closed') out.push('reopen');
+  if (can(u.role, 'ticket.close') && t.state === 'closed' && t.effectiveness_due && !t.effectiveness_at) out.push('check_effectiveness');
   if (can(u.role, 'ticket.reassign') && !['closed', 'client_contacted'].includes(t.state)) out.push('reassign');
   if (can(u.role, 'ticket.reprioritise') && t.state !== 'closed') out.push('reprioritise');
   return out;

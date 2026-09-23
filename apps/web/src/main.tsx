@@ -19,6 +19,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Wall } from './pages/Wall';
 import { Search } from './pages/Search';
 import { Nurses } from './pages/Nurses';
+import { Contacts } from './pages/Contacts';
 import { Home } from './Shell';
 
 const qc = new QueryClient({
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
       { path: 'dashboard/:tab?', element: <Dashboard /> },
       { path: 'search', element: <Search /> },
       { path: 'nurses', element: <Nurses /> },
+      { path: 'contacts', element: <Contacts /> },
       { path: 'tickets', element: <Tickets /> },
       { path: 'tickets/new', element: <NewTicket /> },
       { path: 'tickets/:id', element: <Ticket /> },

@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
   assignmentActions, can, CHANNELS, CLOSURE_REASONS, closureChecklist, COMPLAINANT_TYPES, deriveState, PRIORITIES,
-  ROOT_CAUSES, sastYearMonth, ticketActions, type AssignmentAction, type TicketAction,
+  ROOT_CAUSES, SAST_OFFSET, sastYearMonth, ticketActions, type AssignmentAction, type TicketAction,
 } from '@baton/core';
 import { requirePerm } from '../auth';
 import { audit, auditView, fail, sql, type Sql } from '../db';
@@ -23,6 +23,7 @@ const NewTicket = z
     complainant_type: z.enum(keys(COMPLAINANT_TYPES)),
     complainant_name: text(200),
     organisation_id: z.number().int().nullable().optional(),
+    contact_id: z.number().int().nullable().optional(),
     contact_phone: opt(50),
     contact_email: z.union([z.literal(''), z.email()]).optional().transform((v) => v || null),
     patient_name: opt(200),
@@ -54,7 +55,8 @@ const Action = z.discriminatedUnion('action', [
     satisfied: z.boolean(),
     reopen_department_ids: z.array(z.number().int()).optional(),
   }),
-  z.object({ action: z.literal('close'), closure_reason: z.enum(keys(CLOSURE_REASONS)), root_cause: z.enum(keys(ROOT_CAUSES)) }),
+  z.object({ action: z.literal('close'), closure_reason: z.enum(keys(CLOSURE_REASONS)), root_cause: z.enum(keys(ROOT_CAUSES)), effectiveness_due: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }),
+  z.object({ action: z.literal('check_effectiveness'), result: z.enum(['effective', 'not_effective']), note: text(2000) }),
   z.object({ action: z.literal('reopen'), reason: text(2000), department_ids: z.array(z.number().int()).optional() }),
   z.object({ action: z.literal('reassign'), assignment_id: z.uuid(), department_id: z.number().int(), reason: text(2000) }),
   z.object({ action: z.literal('reprioritise'), priority: z.enum(keys(PRIORITIES)), reason: text(2000) }),
@@ -77,6 +79,23 @@ const DEPT_ROLES = ['dept_responder', 'dept_manager'];
 const visible = (req: FastifyRequest, as: any[]) =>
   can(req.user.role, 'tickets.view_all') || (DEPT_ROLES.includes(req.user.role) && as.some((a) => a.department_id === req.user.department_id && a.state !== 'cancelled'));
 
+const today = () => new Date(Date.now() + SAST_OFFSET).toISOString().slice(0, 10);
+
+/** The client register entry for a new ticket: the one picked at intake, else the same person at the same practice, else a new entry. */
+async function contactFor(db: Sql, b: z.infer<typeof NewTicket>) {
+  const [c] = b.contact_id
+    ? await db`select id from contacts where id = ${b.contact_id} and merged_into is null`
+    : await db`select id from contacts where merged_into is null and lower(name) = lower(${b.complainant_name}) and type = ${b.complainant_type}
+        and organisation_id is not distinct from ${b.organisation_id ?? null} order by id limit 1`;
+  if (c) {
+    await db`update contacts set phone = coalesce(${b.contact_phone}, phone), email = coalesce(${b.contact_email}, email) where id = ${c.id}`;
+    return c.id as number;
+  }
+  const [n] = await db`insert into contacts (name, type, organisation_id, phone, email)
+    values (${b.complainant_name}, ${b.complainant_type}, ${b.organisation_id ?? null}, ${b.contact_phone}, ${b.contact_email}) returning id`;
+  return n.id as number;
+}
+
 /** Restart an assignment's clock (new cycle after reopen / not satisfied). */
 async function restart(db: Sql, sla: SlaContext, t: any, a: any, limit: number) {
   const now = new Date();
@@ -96,6 +115,9 @@ export function ticketRoutes(app: FastifyInstance) {
         state: z.string().max(30).optional(),
         category_id: z.coerce.number().int().optional(),
         site_id: z.coerce.number().int().optional(),
+        contact_id: z.coerce.number().int().optional(),
+        before: z.iso.datetime({ offset: true }).optional(),
+        limit: z.coerce.number().int().min(1).max(1000).optional(),
         from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       })
@@ -122,11 +144,13 @@ export function ticketRoutes(app: FastifyInstance) {
         and (${q.priority ?? null}::text is null or t.priority = ${q.priority ?? null})
         and (${q.category_id ?? null}::int is null or t.category_id = ${q.category_id ?? null})
         and (${q.site_id ?? null}::int is null or t.site_id = ${q.site_id ?? null})
+        and (${q.contact_id ?? null}::int is null or t.contact_id = ${q.contact_id ?? null})
+        and (${q.before ?? null}::timestamptz is null or t.created_at < ${q.before ?? null})
         and (${a}::timestamptz is null or (t.created_at >= ${a} and t.created_at < ${b}))
         and (${dept}::int is null or exists (select 1 from assignments a where a.ticket_id = t.id and a.department_id = ${dept} and a.state <> 'cancelled'))
         and (${like}::text is null or t.number ilike ${like} or t.complainant_name ilike ${like} or t.patient_name ilike ${like}
              or t.requisition_no ilike ${like} or o.name ilike ${like})
-      order by t.created_at desc limit 500`;
+      order by t.created_at desc limit ${q.limit ?? (q.scope === 'open' ? 1000 : 100)}`;
     const sla = await slaContext(sql);
     const rank = { green: 0, amber: 1, red: 2 } as const;
     const out = rows.map((t) => {
@@ -177,7 +201,8 @@ export function ticketRoutes(app: FastifyInstance) {
       const prefix = `QRY-${sastYearMonth(now)}`;
       const [{ n }] = await tx`insert into counters values (${prefix}, 1) on conflict (prefix) do update set n = counters.n + 1 returning n`;
       const number = `${prefix}-${String(n).padStart(4, '0')}`;
-      const [t] = await tx`insert into tickets ${tx({ ...b, number, state: 'assigned', logged_by: req.user.id, created_at: now })} returning id, site_id, number`;
+      const contact_id = await contactFor(tx, b);
+      const [t] = await tx`insert into tickets ${tx({ ...b, contact_id, number, state: 'assigned', logged_by: req.user.id, created_at: now })} returning id, site_id, number`;
       const limit = limitFor(cat, b.priority);
       const depts = await tx`select id, name from departments where id = any(${cat.department_ids}) and active`;
       for (const d of depts)
@@ -265,16 +290,26 @@ export function ticketRoutes(app: FastifyInstance) {
           const gate = closureChecklist({ state: t.state, assignments: assignments as any, calls: calls as any, cycle: t.cycle, ...b });
           const missing = gate.filter((i) => !i.ok).map((i) => i.label);
           if (missing.length) fail(409, `Cannot close: ${missing.join(', ')}`);
+          if (b.effectiveness_due && b.effectiveness_due <= today()) fail(400, 'The effectiveness check must be after today');
           await tx`update tickets set state = 'closed', closure_reason = ${b.closure_reason}, root_cause = ${b.root_cause},
-            closed_at = now(), closed_by = ${req.user.id} where id = ${id}`;
-          await log('state', { from: t.state, to: 'closed', closure_reason: b.closure_reason, root_cause: b.root_cause });
+            closed_at = now(), closed_by = ${req.user.id}, effectiveness_due = ${b.effectiveness_due ?? null} where id = ${id}`;
+          await log('state', { from: t.state, to: 'closed', closure_reason: b.closure_reason, root_cause: b.root_cause, effectiveness_due: b.effectiveness_due });
+          break;
+        }
+        case 'check_effectiveness': {
+          await tx`update tickets set effectiveness_result = ${b.result}, effectiveness_note = ${b.note}, effectiveness_at = now(), effectiveness_by = ${req.user.id} where id = ${id}`;
+          await log('effectiveness_checked', { result: b.result, note: b.note });
+          if (b.result === 'not_effective')
+            await notify(tx, { roles: ['cs_supervisor'], departments: assignments.filter((x) => x.state === 'accepted').map((x) => x.department_id), deptRoles: ['dept_manager'] },
+              { ticketId: id, number: t.number, title: 'Corrective action not effective — reopen or raise a new action' });
           break;
         }
         case 'reopen': {
           const reopen = assignments.filter((x) => x.state === 'accepted' && (!b.department_ids?.length || b.department_ids.includes(x.department_id)));
           if (!reopen.length) fail(400, 'Choose at least one department to reopen');
           for (const x of reopen) await restart(tx, sla, t, x, limitFor(cat, t.priority));
-          await tx`update tickets set state = 'in_progress', cycle = cycle + 1, closure_reason = null, root_cause = null, closed_at = null, closed_by = null where id = ${id}`;
+          await tx`update tickets set state = 'in_progress', cycle = cycle + 1, closure_reason = null, root_cause = null, closed_at = null, closed_by = null,
+            effectiveness_due = null, effectiveness_result = null, effectiveness_note = null, effectiveness_at = null, effectiveness_by = null, effectiveness_reminded = false where id = ${id}`;
           await log('reopened', { reason: b.reason, departments: reopen.map((x) => x.department) });
           await notify(tx, { departments: reopen.map((x) => x.department_id) }, { ticketId: id, number: t.number, title: 'Ticket reopened', body: b.reason });
           break;
@@ -320,11 +355,18 @@ export function ticketRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
     const { body } = z.object({ body: text(10_000) }).parse(req.body);
     if (['management', 'admin'].includes(req.user.role)) fail(403, 'Read-only role');
-    const { assignments } = await load(sql, id);
+    const { t, assignments } = await load(sql, id);
     if (!visible(req, assignments)) fail(404, 'Ticket not found');
-    await sql`insert into notes (ticket_id, body, author_id) values (${id}, ${body}, ${req.user.id})`;
-    await audit(sql, { actor: req.user.id, action: 'note', entity: 'ticket', id });
-    return { ok: true };
+    // @mentions: notify each named colleague who can see this ticket.
+    const named = await sql`select id, name, role, department_id from users
+      where active and id <> ${req.user.id} and strpos(lower(${body}), '@' || lower(name)) > 0`;
+    const mentioned = named.filter((u) => can(u.role, 'tickets.view_all') || (DEPT_ROLES.includes(u.role) && assignments.some((a) => a.department_id === u.department_id && a.state !== 'cancelled')));
+    await sql.begin(async (tx) => {
+      await tx`insert into notes (ticket_id, body, author_id) values (${id}, ${body}, ${req.user.id})`;
+      await audit(tx, { actor: req.user.id, action: 'note', entity: 'ticket', id, data: mentioned.length ? { mentions: mentioned.map((u) => u.name) } : {} });
+      if (mentioned.length) await notify(tx, { users: mentioned.map((u) => u.id) }, { ticketId: id, number: t.number, title: `${req.user.name} mentioned you`, body: body.slice(0, 500) });
+    });
+    return { ok: true, mentioned: mentioned.map((u) => u.name) };
   });
 
   app.post('/api/tickets/:id/attachments', async (req) => {
@@ -361,18 +403,17 @@ export function ticketRoutes(app: FastifyInstance) {
     return data;
   });
 
-  // Complainant register lookup, with repeat history (brief §5.2, §7 repeat complainant).
+  // Client register lookup at intake, with repeat history (brief §5.2, §7 repeat complainant).
   app.get('/api/complainants', async (req) => {
     requirePerm(req, 'ticket.open');
     const { q } = z.object({ q: z.string().trim().min(2).max(100) }).parse(req.query);
     return sql`
-      select complainant_name as name, complainant_type as type, max(organisation_id) as organisation_id,
-        (array_agg(contact_phone order by created_at desc) filter (where contact_phone is not null))[1] as contact_phone,
-        (array_agg(contact_email order by created_at desc) filter (where contact_email is not null))[1] as contact_email,
-        count(*)::int as total, count(*) filter (where created_at > now() - interval '90 days')::int as recent,
-        count(*) filter (where state <> 'closed')::int as open,
-        array_agg(category_id) as category_ids
-      from tickets where complainant_name ilike ${'%' + q + '%'}
-      group by complainant_name, complainant_type order by count(*) desc limit 8`;
+      select c.id, c.name, c.type, c.organisation_id, o.name as organisation, c.phone as contact_phone, c.email as contact_email,
+        count(t.id)::int as total, count(t.id) filter (where t.created_at > now() - interval '90 days')::int as recent,
+        count(t.id) filter (where t.state <> 'closed')::int as open,
+        coalesce(array_agg(t.category_id) filter (where t.id is not null), '{}') as category_ids
+      from contacts c left join organisations o on o.id = c.organisation_id left join tickets t on t.contact_id = c.id
+      where c.merged_into is null and c.name ilike ${'%' + q + '%'}
+      group by c.id, o.name order by count(t.id) desc, c.name limit 8`;
   });
 }

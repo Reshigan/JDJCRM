@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Plus, X } from 'lucide-react';
 import { can, formatMinutes, PRIORITIES, sast } from '@baton/core';
 import { api, useLookups, useMe } from '../api';
 import { ago, Badge, Button, cx, DeptClock, Empty, FlagPill, PRIORITY_TONE, Select, StatePill, type Flag } from '../ui';
+import { SavedViews } from '../tools';
+
+const PAGE = 100;
 
 const RANK = { red: 2, amber: 1, green: 0 } as const;
 
@@ -21,7 +24,16 @@ export function Tickets() {
   };
   const { flag, ...serverParams } = p;
   const qs = new URLSearchParams(serverParams).toString();
-  const { data, isLoading } = useQuery({ queryKey: ['tickets', qs], queryFn: () => api<any[]>(`/tickets?${qs}`), refetchInterval: 60_000 });
+  const paged = (p.scope ?? 'open') !== 'open'; // open work is always shown whole; history pages by date
+  const q = useInfiniteQuery({
+    queryKey: ['tickets', qs],
+    initialPageParam: '',
+    queryFn: ({ pageParam }) => api<any[]>(`/tickets?${qs}${pageParam ? `&before=${encodeURIComponent(pageParam)}` : ''}`),
+    getNextPageParam: (last) => (paged && last.length === PAGE ? last[last.length - 1].created_at : undefined),
+    refetchInterval: 60_000,
+  });
+  const { isLoading } = q;
+  const data = useMemo(() => q.data?.pages.flat(), [q.data]);
 
   const counts = useMemo(() => {
     const c = { red: 0, amber: 0, green: 0, review: 0 };
@@ -96,12 +108,19 @@ export function Tickets() {
           <option value="">Any priority</option>
           {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </Select></div>
+        {p.contact_id && (
+          <button onClick={() => set('contact_id')} className="inline-flex h-9 items-center gap-1 rounded-lg bg-brand-soft px-3 text-sm text-brand">
+            One client <X size={14} />
+          </button>
+        )}
         {p.q && (
           <button onClick={() => set('q')} className="inline-flex h-9 items-center gap-1 rounded-lg bg-brand-soft px-3 text-sm text-brand">
             “{p.q}” <X size={14} />
           </button>
         )}
       </div>
+
+      <SavedViews page="tickets" />
 
       <ul className="space-y-2 md:hidden">
         {rows.map((t) => (
@@ -169,6 +188,7 @@ export function Tickets() {
         </div>
         {!isLoading && !rows.length && <Empty>No tickets match. Nothing is waiting on you.</Empty>}
       </div>
+      {q.hasNextPage && <Button variant="outline" className="w-full" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>{q.isFetchingNextPage ? 'Loading…' : 'Load older tickets'}</Button>}
     </div>
   );
 }

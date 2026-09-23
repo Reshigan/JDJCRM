@@ -200,6 +200,8 @@ export function bleedRoutes(app: FastifyInstance) {
         nurse_id: z.uuid().optional(),
         from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        before: z.iso.datetime({ offset: true }).optional(),
+        limit: z.coerce.number().int().min(1).max(1000).optional(),
       })
       .parse(req.query);
     const like = q.q ? `%${q.q}%` : null;
@@ -212,7 +214,8 @@ export function bleedRoutes(app: FastifyInstance) {
         and (${q.site_id ?? null}::int is null or r.site_id = ${q.site_id ?? null})
         and (${q.nurse_id ?? null}::uuid is null or r.nurse_id = ${q.nurse_id ?? null})
         and (${a}::timestamptz is null or (b.opened_at >= ${a} and b.opened_at < ${z2}))
-      order by b.opened_at desc limit 500`;
+        and (${q.before ?? null}::timestamptz is null or b.opened_at < ${q.before ?? null})
+      order by b.opened_at desc limit ${q.limit ?? (q.scope === 'open' ? 1000 : 100)}`;
     const cfg = await bleedConfig(sql);
     return rows.map((b) => decorate(b, cfg));
   });
@@ -439,6 +442,20 @@ export function bleedRoutes(app: FastifyInstance) {
       await audit(tx, { actor: req.user.id, action: 'bleed.closed', entity: 'bleed', id, ip: req.ip });
     });
     return { ok: true };
+  });
+
+  // Bulk close: every listed bleed that has ended (report filed, unsuccessful or cancelled). Others are skipped.
+  app.post('/api/bleeds/close', async (req) => {
+    requirePerm(req, 'bleed.close');
+    const { ids } = z.object({ ids: z.array(z.uuid()).min(1).max(500) }).parse(req.body);
+    return sql.begin(async (tx) => {
+      const closed = await tx`update bleeds set closed_at = now(), closed_by = ${req.user.id}
+        where id = any(${ids}::uuid[]) and closed_at is null
+          and (filed_at is not null or cancelled_at is not null or coalesce(outcome, 'successful') <> 'successful')
+        returning id`;
+      for (const b of closed) await audit(tx, { actor: req.user.id, action: 'bleed.closed', entity: 'bleed', id: b.id, ip: req.ip, data: { bulk: true } });
+      return { closed: closed.length, skipped: ids.length - closed.length };
+    });
   });
 
   app.post('/api/bleed-requests/:id/nurse', async (req) => {

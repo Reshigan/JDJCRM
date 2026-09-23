@@ -12,6 +12,7 @@ import { streamRoutes } from './routes/stream';
 import { dispatchRoutes } from './routes/dispatch';
 import { integrationRoutes } from './routes/integrations';
 import { miscRoutes } from './routes/misc';
+import { contactRoutes } from './routes/contacts';
 import { ticketRoutes } from './routes/tickets';
 
 export async function buildApp() {
@@ -37,6 +38,7 @@ export async function buildApp() {
   authPlugin(app);
   miscRoutes(app);
   ticketRoutes(app);
+  contactRoutes(app);
   adminRoutes(app);
   bleedRoutes(app);
   dashboardRoutes(app);

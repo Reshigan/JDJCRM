@@ -42,15 +42,15 @@ export function ChartCard({ title, sub, children, table, action, dim }: { title:
   );
 }
 
-export const DataTable = ({ head, rows, onPick }: { head: string[]; rows: { key: string | number; cells: ReactNode[] }[]; onPick?: (k: string | number) => void }) => (
+export const DataTable = ({ head, rows, onPick, text }: { head: string[]; rows: { key: string | number; cells: ReactNode[] }[]; onPick?: (k: string | number) => void; text?: boolean }) => (
   <table className="w-full min-w-[420px] text-sm">
     <thead className="border-y border-line bg-surface-2/60 text-left text-xs text-muted">
-      <tr>{head.map((h, i) => <th key={h} className={cx('px-5 py-2 font-medium', i > 0 && 'text-right')}>{h}</th>)}</tr>
+      <tr>{head.map((h, i) => <th key={h} className={cx('px-5 py-2 font-medium', i > 0 && !text && 'text-right')}>{h}</th>)}</tr>
     </thead>
     <tbody>
       {rows.map((r) => (
         <tr key={r.key} onClick={onPick && (() => onPick(r.key))} className={cx('border-b border-line last:border-0', onPick && 'cursor-pointer hover:bg-surface-2/60')}>
-          {r.cells.map((c, i) => <td key={i} className={cx('px-5 py-2', i > 0 && 'num text-right')}>{c}</td>)}
+          {r.cells.map((c, i) => <td key={i} className={cx('px-5 py-2', i > 0 && !text && 'num text-right')}>{c}</td>)}
         </tr>
       ))}
       {!rows.length && <tr><td colSpan={head.length} className="px-5 py-6 text-center text-muted">No data in this period.</td></tr>}

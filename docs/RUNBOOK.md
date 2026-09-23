@@ -96,6 +96,8 @@ Migrations run automatically when the API starts, and each runs in a transaction
 | "Chain broken at entry #N" on the audit page | Someone altered the database directly. Preserve the host, restore the last good backup elsewhere and compare entries around #N, then report under your POPIA breach procedure. |
 | Nurses report "outside the geofence" at one hospital | Check the hospital's GPS position and radius in Administration → Practices & hospitals. Large campuses usually need 400–600 m. |
 | Implausible-location alerts for a nurse | Review the bleed's geolocation evidence. Repeated alerts suggest a fake-GPS app. The Android app refuses to proceed while one is active. |
+| Two register entries for one person | A CS supervisor opens **Client register → Possible duplicates** and chooses the entry to keep. The others merge into it with their queries, and the merge is audited. A merge cannot be undone in the app, so check the practice and number first. |
+| Boards or dashboard feel slow | On a spare host, restore a recent backup under a database named `baton_load` and run `DATABASE_URL=postgres://…/baton_load npm run loadtest -w @baton/api`. **The load test wipes that database first**, and refuses to run on any database whose name lacks "test" or "load". Its table shows which path is over budget. |
 | E-mail not arriving | `docker compose logs api worker \| grep mail`. The relay must support STARTTLS; for a relay without it, set `SMTP_REQUIRE_TLS=false`. |
 
 ## POPIA

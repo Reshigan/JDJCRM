@@ -1,6 +1,6 @@
 // Background jobs. Several workers may run; a session advisory lock keeps one active.
 import { sql } from './db';
-import { bleedEscalationTick, escalationTick } from './escalation';
+import { bleedEscalationTick, effectivenessTick, escalationTick } from './escalation';
 import { reportTick } from './reports';
 import { retentionTick } from './retention';
 import { heartbeat } from './ops';
@@ -14,6 +14,7 @@ const tick = async () => {
     if (n) console.log(`[worker] escalated ${n}`);
     await sql`delete from sessions where expires_at < now()`;
     await reportTick();
+    await effectivenessTick();
     if (new Date().getUTCMinutes() === 0) await retentionTick(); // hourly
     await heartbeat({ escalated: n });
   } catch (e) {

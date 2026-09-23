@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Droplet, Gauge, Route, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
+import { Bell, BookUser, Droplet, Gauge, Route, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
 import { can, ROLES } from '@baton/core';
 import { api, useLookups, useMe } from './api';
 import { useLiveEvents } from './live';
@@ -107,6 +107,7 @@ export function Shell() {
             <NavLink to="/tickets" end className={link}><Inbox size={17} />{can(me.role, 'tickets.view_all') ? 'Query board' : 'My department'}</NavLink>
           )}
           {can(me.role, 'ticket.open') && <NavLink to="/tickets/new" className={link}><Plus size={17} />New query</NavLink>}
+          {can(me.role, 'tickets.view_all') && <NavLink to="/contacts" className={link}><BookUser size={17} />Client register</NavLink>}
           {can(me.role, 'dashboard.view') && <NavLink to="/bleeds" end className={link}><Droplet size={17} />Bleed board</NavLink>}
           {can(me.role, 'bleed.open') && <NavLink to="/bleeds/new" className={link}><Plus size={17} />New bleed request</NavLink>}
           {can(me.role, 'dashboard.view') && <NavLink to="/nurses" className={link}><Route size={17} />Nurse runs</NavLink>}

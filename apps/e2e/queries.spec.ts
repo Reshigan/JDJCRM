@@ -46,6 +46,13 @@ test('query journey: CS logs → two departments respond → CS reviews, calls, 
   await expect(close).toBeDisabled(); // gate: reason + root cause still missing
   await cs.getByLabel(/^Closure reason/).selectOption({ label: 'Resolved with corrective action' });
   await cs.getByLabel(/^Root cause/).selectOption({ label: 'Logistics' });
+  await cs.getByLabel(/^Effectiveness check/).fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
   await close.click();
   await expect(cs.getByText('Closed').first()).toBeVisible();
+
+  // Corrective-action effectiveness: recorded against the closed ticket.
+  await cs.getByRole('button', { name: 'Effective', exact: true }).click();
+  await cs.getByLabel(/^Evidence/).fill('No repeat since the courier route change');
+  await cs.getByRole('button', { name: 'Record check' }).click();
+  await expect(cs.getByText(/Effectiveness check: corrective action effective/)).toBeVisible();
 });

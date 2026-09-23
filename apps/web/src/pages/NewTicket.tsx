@@ -14,6 +14,7 @@ export function NewTicket() {
     channel: 'telephone', complainant_type: 'doctor' as ComplainantType, complainant_name: '', organisation: '', contact_phone: '', contact_email: '',
     patient_name: '', requisition_no: '', site_id: '', category_id: '', priority: 'normal' as Priority, description: '',
   });
+  const [contactId, setContactId] = useState<number | null>(null); // the client register entry picked, if any
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -25,7 +26,7 @@ export function NewTicket() {
     enabled: f.complainant_name.trim().length >= 3,
     staleTime: 30_000,
   });
-  const history = matches?.find((m) => m.name.toLowerCase() === f.complainant_name.trim().toLowerCase());
+  const history = matches?.find((m) => m.id === contactId) ?? matches?.find((m) => m.name.toLowerCase() === f.complainant_name.trim().toLowerCase());
   const cat = lk?.categories.find((c) => String(c.id) === f.category_id);
   const org = lk?.organisations.find((o) => o.name === f.organisation);
   const limit = cat && cat[`limit_${f.priority}`];
@@ -34,6 +35,7 @@ export function NewTicket() {
 
   const pickComplainant = (m: any) => {
     const o = lk?.organisations.find((x) => x.id === m.organisation_id);
+    setContactId(m.id);
     setF({ ...f, complainant_name: m.name, complainant_type: m.type, organisation: o?.name ?? f.organisation, contact_phone: m.contact_phone ?? '', contact_email: m.contact_email ?? '', site_id: o?.site_id ? String(o.site_id) : f.site_id });
   };
 
@@ -44,7 +46,7 @@ export function NewTicket() {
     try {
       if (needsOrg && !org) throw new Error('Choose the practice / hospital from the list');
       const { organisation, site_id, category_id, ...rest } = f;
-      const { id } = await api('/tickets', { body: { ...rest, organisation_id: org?.id ?? null, site_id: +site_id, category_id: +category_id } });
+      const { id } = await api('/tickets', { body: { ...rest, contact_id: contactId, organisation_id: org?.id ?? null, site_id: +site_id, category_id: +category_id } });
       for (const file of files) {
         const fd = new FormData();
         fd.append('file', file);
@@ -77,12 +79,12 @@ export function NewTicket() {
               <Select value={f.complainant_type} onChange={set('complainant_type')}>{Object.entries(COMPLAINANT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>
             </Field>
             <Field label="Complainant name" required className="sm:col-span-2">
-              <Input value={f.complainant_name} onChange={set('complainant_name')} required autoFocus autoComplete="off" placeholder="Start typing to search previous complainants" />
+              <Input value={f.complainant_name} onChange={(e) => { setContactId(null); set('complainant_name')(e); }} required autoFocus autoComplete="off" placeholder="Start typing to search previous complainants" />
               {matches && matches.length > 0 && !history && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {matches.map((m) => (
-                    <button type="button" key={m.name + m.type} onClick={() => pickComplainant(m)} className="rounded-md border border-line bg-surface-2 px-2 py-1 text-xs hover:border-brand">
-                      {m.name} <span className="text-muted">· {m.total} ticket{m.total > 1 && 's'}</span>
+                    <button type="button" key={m.id} onClick={() => pickComplainant(m)} className="rounded-md border border-line bg-surface-2 px-2 py-1 text-xs hover:border-brand">
+                      {m.name} <span className="text-muted">{m.organisation && `· ${m.organisation} `}· {m.total} ticket{m.total !== 1 && 's'}</span>
                     </button>
                   ))}
                 </div>

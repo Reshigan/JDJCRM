@@ -38,6 +38,24 @@ export function dashboardRoutes(app: FastifyInstance) {
     return buf;
   });
 
+  // Corrective-action effectiveness (ISO 15189 quality indicator): checks due, and results over the last year.
+  app.get('/api/quality/effectiveness', async (req) => {
+    requirePerm(req, 'dashboard.view');
+    const rows = await sql`
+      select t.id, t.number, t.complainant_name, t.root_cause, t.closed_at, t.effectiveness_due, t.effectiveness_result, t.effectiveness_note,
+        t.effectiveness_at, c.name as category, u.name as checked_by
+      from tickets t join categories c on c.id = t.category_id left join users u on u.id = t.effectiveness_by
+      where t.effectiveness_due is not null and (t.effectiveness_at is null or t.effectiveness_at > now() - interval '365 days')
+      order by t.effectiveness_at is not null, t.effectiveness_due, t.effectiveness_at desc limit 500`;
+    const checked = rows.filter((r) => r.effectiveness_at);
+    return {
+      due: rows.filter((r) => !r.effectiveness_at),
+      checked,
+      effective: checked.filter((r) => r.effectiveness_result === 'effective').length,
+      not_effective: checked.filter((r) => r.effectiveness_result === 'not_effective').length,
+    };
+  });
+
   // Full search (brief §7): ticket number, patient, requisition, hospital, complainant — across queries and bleeds.
   app.get('/api/search', async (req) => {
     const { q } = z.object({ q: z.string().trim().min(2).max(100) }).parse(req.query);

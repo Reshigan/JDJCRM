@@ -25,6 +25,7 @@ export type Lookups = {
   users: { id: string; name: string; role: Role; department_id: number }[];
   thresholds: [number, number, number];
   bleed_limits: number[];
+  canned: { id: number; title: string; body: string }[];
 };
 export const useLookups = () => useQuery<Lookups>({ queryKey: ['lookups'], queryFn: () => api('/lookups'), staleTime: 300_000 });
 

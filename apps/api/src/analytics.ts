@@ -41,7 +41,9 @@ function groupBy<T>(xs: T[], key: (x: T) => string | number | null) {
   for (const x of xs) {
     const k = key(x);
     if (k == null) continue;
-    m.set(k, [...(m.get(k) ?? []), x]);
+    const g = m.get(k);
+    if (g) g.push(x);
+    else m.set(k, [x]);
   }
   return m;
 }
@@ -105,8 +107,9 @@ export async function analytics(f: Filters, db: Sql = sql) {
       const fin = xs.filter((b) => b.filed_at);
       return { id: k, label: label(xs[0]), n: xs.length, completed: fin.length, compliance: pct(fin.filter(within).length, fin.length), median_tat: median(fin.map((b) => b.total!)), breaches: xs.filter((b) => b.flag === 'red').length };
     }).sort((x, y) => y.n - x.n);
+  const bleedsByDay = groupBy(counted, (b) => day(b.opened_at));
   const bleedTrend = days(f).map((d) => {
-    const xs = counted.filter((b) => day(b.opened_at) === d);
+    const xs = bleedsByDay.get(d) ?? [];
     const fin = xs.filter((b) => b.filed_at);
     return { day: d, n: xs.length, compliance: pct(fin.filter(within).length, fin.length), median_tat: median(fin.map((b) => b.total!)) };
   });
@@ -155,7 +158,7 @@ export async function analytics(f: Filters, db: Sql = sql) {
       by_complainant: complainants.sort((x, y) => y.n - x.n).slice(0, 15),
       repeats: repeatPairs.sort((x, y) => y.n - x.n).slice(0, 20),
       root_causes: count((t) => t.root_cause, (t) => t.root_cause),
-      trend: days(f).map((d) => ({ day: d, n: queries.filter((t) => day(t.created_at) === d).length })),
+      trend: ((byDay) => days(f).map((d) => ({ day: d, n: byDay.get(d)?.length ?? 0 })))(groupBy(queries, (t) => day(t.created_at))),
     },
   };
 }

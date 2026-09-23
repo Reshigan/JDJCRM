@@ -2,7 +2,7 @@
 import { audit, sql } from './db';
 import { notify } from './notify';
 import { slaContext } from './sla';
-import { bleedIntervals, formatMinutes, INTERVALS } from '@baton/core';
+import { bleedIntervals, formatMinutes, INTERVALS, SAST_OFFSET } from '@baton/core';
 import { bleedConfig } from './routes/bleeds';
 
 const LEVELS = ['', 'Amber — 80% of time limit', 'Red — time limit breached', 'Escalated — 150% of time limit'];
@@ -72,4 +72,15 @@ export async function bleedEscalationTick(now = new Date()) {
     });
   }
   return raised;
+}
+
+/** Corrective-action effectiveness checks that fall due today: remind whoever closed the ticket, and CS supervisors, once. */
+export async function effectivenessTick() {
+  const today = new Date(Date.now() + SAST_OFFSET).toISOString().slice(0, 10);
+  const due = await sql`update tickets set effectiveness_reminded = true
+    where state = 'closed' and effectiveness_due <= ${today} and effectiveness_at is null and not effectiveness_reminded
+    returning id, number, closed_by`;
+  for (const t of due)
+    await notify(sql, { users: [t.closed_by], roles: ['cs_supervisor'] }, { ticketId: t.id, number: t.number, title: 'Corrective action effectiveness check due' });
+  return due.length;
 }

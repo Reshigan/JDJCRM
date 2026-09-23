@@ -266,6 +266,39 @@ function Performance() {
   );
 }
 
+/** Corrective-action effectiveness checks (ISO 15189 quality indicator). */
+function Quality() {
+  const nav = useNavigate();
+  const { data } = useQuery({ queryKey: ['quality'], queryFn: () => api('/quality/effectiveness') });
+  if (!data) return <div className="h-40 animate-pulse rounded-xl bg-surface-2" />;
+  const today = sastDay();
+  const overdue = data.due.filter((r: any) => r.effectiveness_due < today).length;
+  const rate = data.checked.length ? Math.round((data.effective / data.checked.length) * 100) : null;
+  const open = (k: string | number) => nav(`/tickets/${k}`);
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Checks due" value={data.due.length} />
+        <Stat label="Overdue" value={overdue} tone={overdue ? 'bad' : undefined} />
+        <Stat label="Effective (12 months)" value={pc(rate)} sub={`${data.effective} of ${data.checked.length} checked`} tone={rate != null && rate >= 90 ? 'ok' : undefined} />
+        <Stat label="Not effective" value={data.not_effective} tone={data.not_effective ? 'warn' : undefined} />
+      </div>
+      <Card title="Effectiveness checks due">
+        <div className="-mx-5 -my-5 overflow-x-auto">
+          <DataTable text onPick={open} head={['Ticket', 'Category', 'Root cause', 'Closed', 'Due']}
+            rows={data.due.map((r: any) => ({ key: r.id, cells: [<span className="num">{r.number}</span>, r.category, ROOT_CAUSES[r.root_cause as keyof typeof ROOT_CAUSES] ?? '—', r.closed_at.slice(0, 10), <span className={cx('num', r.effectiveness_due < today && 'font-semibold text-bad')}>{r.effectiveness_due}</span>] }))} />
+        </div>
+      </Card>
+      <Card title="Checked in the last 12 months">
+        <div className="-mx-5 -my-5 overflow-x-auto">
+          <DataTable text onPick={open} head={['Ticket', 'Category', 'Result', 'Evidence', 'Checked by']}
+            rows={data.checked.map((r: any) => ({ key: r.id, cells: [<span className="num">{r.number}</span>, r.category, r.effectiveness_result === 'effective' ? 'Effective' : <span className="font-semibold text-bad">Not effective</span>, <span className="line-clamp-1 max-w-[320px]">{r.effectiveness_note}</span>, r.checked_by] }))} />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function Dashboard() {
   const { tab = 'live' } = useParams();
   const { data: me } = useMe();
@@ -277,18 +310,18 @@ export function Dashboard() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="mt-0.5 text-sm text-muted">{t === 'live' ? 'Live operational picture across all sites. Refreshes every 20 seconds.' : 'Turnaround performance and query analytics. Every figure drills down to its tickets.'}</p>
+          <p className="mt-0.5 text-sm text-muted">{t === 'live' ? 'Live operational picture across all sites. Refreshes every 20 seconds.' : t === 'quality' ? 'Were corrective actions effective? Checks fall due on the date set at closure.' : 'Turnaround performance and query analytics. Every figure drills down to its tickets.'}</p>
         </div>
         {liveAllowed && <Link to="/wall" target="_blank"><Button variant="outline" size="sm"><Maximize2 size={15} />Wall mode</Button></Link>}
       </div>
       {liveAllowed && (
         <nav className="flex gap-1 border-b border-line">
-          {[['live', 'Live'], ['performance', 'Performance']].map(([k, l]) => (
+          {[['live', 'Live'], ['performance', 'Performance'], ['quality', 'Quality']].map(([k, l]) => (
             <NavLink key={k} to={`/dashboard/${k}${k === 'performance' && p.toString() ? `?${p}` : ''}`} className={cx('border-b-2 px-3 py-2 text-sm', t === k ? 'border-brand font-medium text-brand' : 'border-transparent text-muted hover:text-text')}>{l}</NavLink>
           ))}
         </nav>
       )}
-      {t === 'live' ? <Live /> : <Performance />}
+      {t === 'live' ? <Live /> : t === 'quality' ? <Quality /> : <Performance />}
     </div>
   );
 }
