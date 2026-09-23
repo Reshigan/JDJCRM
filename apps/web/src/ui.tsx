@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Circle, OctagonAlert } from 'lucide-react';
 import { formatMinutes, QUERY_STATES, type QueryState } from '@baton/core';
 
@@ -180,5 +181,24 @@ export function BatonBar({ intervals, labels, className }: { intervals: any[]; l
         </div>
       )}
     </div>
+  );
+}
+
+/** Live LIS lookup for a requisition number (brief §5.2). Silent when the LIS isn't configured. */
+export function RequisitionCheck({ no, patient }: { no: string; patient?: string }) {
+  const [q, setQ] = useState(no);
+  useEffect(() => { const t = setTimeout(() => setQ(no.trim()), 500); return () => clearTimeout(t); }, [no]);
+  const { data } = useQuery({
+    queryKey: ['requisition', q, patient],
+    queryFn: () => fetch(`/api/integrations/requisition/${encodeURIComponent(q)}${patient ? `?patient=${encodeURIComponent(patient)}` : ''}`, { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : { status: 'unavailable' })),
+    enabled: q.length >= 3,
+    staleTime: 60_000,
+  });
+  if (!data || data.status === 'unavailable') return null;
+  if (data.status === 'unknown') return <span className="mt-1 flex items-center gap-1 text-xs text-bad"><AlertTriangle size={12} />Not found in the LIS — check the number</span>;
+  return (
+    <span className={cx('mt-1 flex items-center gap-1 text-xs', data.patient_match === false ? 'text-warn' : 'text-ok')}>
+      {data.patient_match === false ? <><AlertTriangle size={12} />Found in the LIS, but the patient name differs</> : <><CheckCircle2 size={12} />Found in the LIS{data.patient_match ? ' · patient matches' : ''}</>}
+    </span>
   );
 }

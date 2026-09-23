@@ -14,7 +14,9 @@
 	}
 
 	handle /api/* {
-		reverse_proxy api:3000
+		reverse_proxy api:3000 {
+			flush_interval -1 # stream live events without buffering
+		}
 	}
 
 	handle {

@@ -8,6 +8,9 @@ import { adminRoutes } from './routes/admin';
 import { bleedRoutes } from './routes/bleeds';
 import { dashboardRoutes } from './routes/dashboard';
 import { complianceRoutes } from './routes/compliance';
+import { streamRoutes } from './routes/stream';
+import { dispatchRoutes } from './routes/dispatch';
+import { integrationRoutes } from './routes/integrations';
 import { miscRoutes } from './routes/misc';
 import { ticketRoutes } from './routes/tickets';
 
@@ -38,5 +41,8 @@ export async function buildApp() {
   bleedRoutes(app);
   dashboardRoutes(app);
   complianceRoutes(app);
+  streamRoutes(app);
+  dispatchRoutes(app);
+  await integrationRoutes(app);
   return app;
 }

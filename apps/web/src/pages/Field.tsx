@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Camera, Check, ChevronRight, CloudOff, LogOut, MapPin, MapPinOff, Minus, Navigation, Phone, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
-import { BLEED_STATES, distanceM, formatMinutes, OUTCOMES, TUBE_TYPES, type BleedState, type Outcome } from '@baton/core';
+import { BLEED_STATES, distanceM, formatMinutes, OUTCOMES, PHOTO_SHARPNESS_MIN, TUBE_TYPES, type BleedState, type Outcome } from '@baton/core';
+import { readBarcode, sharpness } from '../quality';
 import { api, useMe } from '../api';
 import { compress, kvGet, kvSet, send, useOutbox, wipe } from '../offline';
-import { BatonBar, BatonMark, Button, cx, ErrorText, Field, FlagPill, Input, Select, Textarea } from '../ui';
+import { useLiveEvents } from '../live';
+import { BatonBar, BatonMark, Button, cx, ErrorText, Field, FlagPill, Input, RequisitionCheck, Select, Textarea } from '../ui';
 
 type Pos = { lat: number; lng: number; accuracy: number; mock?: boolean };
 
@@ -53,7 +55,7 @@ function useField() {
         return { data: d, cached: true };
       }
     },
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     networkMode: 'always',
   });
   const arrived = new Set(items.flatMap((i) => (i.meta.kind === 'arrive' ? [i.meta.request_id] : [])));
@@ -74,6 +76,7 @@ function useField() {
 export function FieldShell() {
   const { data: me, isLoading, error } = useMe();
   const { items, online, failed, clearFailed } = useOutbox();
+  useLiveEvents(!!me && online);
   const nav = useNavigate();
   const qc = useQueryClient();
   if (isLoading) return <div className="grid h-dvh place-items-center"><BatonMark size={40} className="pulse" /></div>;
@@ -181,7 +184,8 @@ function GeoGate({ hospital, lat, lng, radius, label, busy, onConfirm, breachNee
 
 function Capture({ b, onDone }: { b: any; onDone: (msg: string) => void }) {
   const [outcome, setOutcome] = useState<Outcome>('successful');
-  const [photos, setPhotos] = useState<Record<string, { blob: Blob; url: string }>>({});
+  const [photos, setPhotos] = useState<Record<string, { blob: Blob; url: string; sharp: number }>>({});
+  const [scanned, setScanned] = useState(false);
   const [f, setF] = useState({ patient_name: b.patient_name ?? '', folder_no: b.folder_no ?? '', ward: b.ward ?? '', bed: b.bed ?? '', requisition_no: '', outcome_reason: '', breach_reason: '' });
   const [tubes, setTubes] = useState<{ type: string; count: number }[]>([{ type: TUBE_TYPES[0], count: 1 }]);
   const [error, setError] = useState<unknown>(null);
@@ -193,7 +197,13 @@ function Capture({ b, onDone }: { b: any; onDone: (msg: string) => void }) {
     const file = e.target.files?.[0];
     if (!file) return;
     const blob = await compress(file).catch(() => file);
-    setPhotos({ ...photos, [kind]: { blob, url: URL.createObjectURL(blob) } });
+    const sharp = await sharpness(blob).catch(() => 999);
+    setPhotos((p) => ({ ...p, [kind]: { blob, url: URL.createObjectURL(blob), sharp } }));
+    if (kind === 'requisition') {
+      const code = await readBarcode(file);
+      if (code) { setF((x) => (x.requisition_no ? x : { ...x, requisition_no: code })); setScanned(true); }
+    }
+    e.target.value = ''; // allow retaking the same slot
   };
   const complete = ok
     ? photos.requisition && photos.sticker && f.patient_name && f.folder_no && f.ward && f.bed && tubes.length && (!breachNeeded || f.breach_reason)
@@ -205,7 +215,8 @@ function Capture({ b, onDone }: { b: any; onDone: (msg: string) => void }) {
     const form: [string, string | Blob][] = [['outcome', outcome], ['device_time', new Date().toISOString()]];
     if (ok) {
       for (const k of ['patient_name', 'folder_no', 'ward', 'bed', 'requisition_no', 'breach_reason'] as const) if (f[k]) form.push([k, f[k]]);
-      form.push(['tubes', JSON.stringify(tubes)], ['requisition', photos.requisition.blob], ['sticker', photos.sticker.blob]);
+      form.push(['tubes', JSON.stringify(tubes)], ['requisition', photos.requisition.blob], ['sticker', photos.sticker.blob],
+        ['requisition_sharpness', String(Math.round(photos.requisition.sharp))], ['sticker_sharpness', String(Math.round(photos.sticker.sharp))]);
     } else form.push(['outcome_reason', f.outcome_reason]);
     try {
       const r = await send({ url: `/api/bleeds/${b.id}/capture`, form, meta: { kind: 'capture', bleed_id: b.id, outcome } });
@@ -239,13 +250,18 @@ function Capture({ b, onDone }: { b: any; onDone: (msg: string) => void }) {
               </label>
             ))}
           </div>
+          {Object.entries(photos).filter(([, p]) => p.sharp < PHOTO_SHARPNESS_MIN).map(([k]) => (
+            <p key={k} role="alert" className="flex items-start gap-2 rounded-lg bg-warn-soft p-2.5 text-sm text-warn">
+              <TriangleAlert size={16} className="mt-0.5 shrink-0" />The {k === 'sticker' ? 'hospital sticker' : 'requisition'} photo looks blurry. Hold steady and tap it to retake so it can be read.
+            </p>
+          ))}
           {(photos.requisition || photos.sticker) && <p className="text-center text-xs text-muted">Check each photo is sharp and readable. Tap to retake.</p>}
           <div className="card grid grid-cols-2 gap-3 p-4">
             <Field label="Patient name" required className="col-span-2"><Input value={f.patient_name} onChange={set('patient_name')} /></Field>
             <Field label="Hospital / folder no." required className="col-span-2"><Input value={f.folder_no} onChange={set('folder_no')} className="num" /></Field>
             <Field label="Ward" required><Input value={f.ward} onChange={set('ward')} /></Field>
             <Field label="Bed" required><Input value={f.bed} onChange={set('bed')} /></Field>
-            <Field label="Requisition no." className="col-span-2"><Input value={f.requisition_no} onChange={set('requisition_no')} className="num" inputMode="text" /></Field>
+            <Field label="Requisition no." className="col-span-2" hint={scanned ? 'Read from the barcode on the photo — check it matches.' : undefined}><Input value={f.requisition_no} onChange={set('requisition_no')} className="num" inputMode="text" />{f.requisition_no && <RequisitionCheck no={f.requisition_no} patient={f.patient_name} />}</Field>
           </div>
           <div className="card space-y-2 p-4">
             <div className="text-sm font-semibold">Tubes drawn</div>

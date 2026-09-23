@@ -90,3 +90,6 @@ export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng
 /** Patient reference for boards: initials + folder, never the full name (POPIA minimisation). */
 export const patientRef = (name?: string | null, folder?: string | null) =>
   [name ? name.split(/\s+/).map((p) => p[0]?.toUpperCase()).join('') : null, folder].filter(Boolean).join(' · ') || '—';
+
+/** Variance-of-Laplacian on a 320 px greyscale copy, measured on the phone. Below this the photo is likely unreadable. */
+export const PHOTO_SHARPNESS_MIN = 60;

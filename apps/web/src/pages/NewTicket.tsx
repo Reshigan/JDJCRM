@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, History, Paperclip, Route, TriangleAlert } from 'lucide-react';
 import { CHANNELS, COMPLAINANT_TYPES, formatMinutes, PRIORITIES, type ComplainantType, type Priority } from '@baton/core';
 import { api, useLookups } from '../api';
-import { Badge, Button, Card, cx, ErrorText, Field, Input, Select, Textarea } from '../ui';
+import { Badge, Button, Card, cx, ErrorText, Field, Input, RequisitionCheck, Select, Textarea } from '../ui';
 
 export function NewTicket() {
   const { data: lk } = useLookups();
@@ -124,7 +124,7 @@ export function NewTicket() {
               </Select>
             </Field>
             <Field label="Patient name" hint="Where applicable"><Input value={f.patient_name} onChange={set('patient_name')} /></Field>
-            <Field label="Requisition number" hint="Where applicable"><Input value={f.requisition_no} onChange={set('requisition_no')} className="num" /></Field>
+            <Field label="Requisition number" hint="Where applicable"><Input value={f.requisition_no} onChange={set('requisition_no')} className="num" />{f.requisition_no && <RequisitionCheck no={f.requisition_no} patient={f.patient_name || undefined} />}</Field>
             <Field label="Description" required className="sm:col-span-2">
               <Textarea value={f.description} onChange={set('description')} required rows={5} placeholder="What the complainant said, in their words." />
             </Field>

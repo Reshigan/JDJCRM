@@ -20,7 +20,7 @@ export function Samples() {
   const [q, setQ] = useState('');
   const [breach, setBreach] = useState<Record<string, string>>({});
   const input = useRef<HTMLInputElement>(null);
-  const { data: rows, isLoading } = useQuery({ queryKey: ['samples', q], queryFn: () => api<any[]>(`/samples${q ? `?q=${encodeURIComponent(q)}` : ''}`), refetchInterval: 20_000 });
+  const { data: rows, isLoading } = useQuery({ queryKey: ['samples', q], queryFn: () => api<any[]>(`/samples${q ? `?q=${encodeURIComponent(q)}` : ''}`), refetchInterval: 60_000 });
   const act = useMutation({
     mutationFn: ({ id, step }: { id: string; step: string }) => api(`/bleeds/${id}/step`, { body: { step, breach_reason: breach[id] || undefined } }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['samples'] }); setQ(''); input.current?.focus(); },

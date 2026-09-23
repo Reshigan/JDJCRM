@@ -37,9 +37,9 @@ export function BreachRegister({ rows, compact }: { rows: any[]; compact?: boole
 }
 
 export function useLive() {
-  const live = useQuery({ queryKey: ['live'], queryFn: () => api('/dashboard/live'), refetchInterval: 20_000 });
-  const bleeds = useQuery({ queryKey: ['bleeds', 'open'], queryFn: () => api<any[]>('/bleeds?scope=open'), refetchInterval: 20_000 });
-  const queries = useQuery({ queryKey: ['tickets', ''], queryFn: () => api<any[]>('/tickets'), refetchInterval: 20_000 });
+  const live = useQuery({ queryKey: ['live'], queryFn: () => api('/dashboard/live'), refetchInterval: 60_000 });
+  const bleeds = useQuery({ queryKey: ['bleeds', 'open'], queryFn: () => api<any[]>('/bleeds?scope=open'), refetchInterval: 60_000 });
+  const queries = useQuery({ queryKey: ['tickets', ''], queryFn: () => api<any[]>('/tickets'), refetchInterval: 60_000 });
   const active = (bleeds.data ?? []).filter((b) => !['filed', 'unsuccessful', 'cancelled', 'closed'].includes(b.state))
     .sort((a, b) => RANK[b.flag as Flag] - RANK[a.flag as Flag] || (b.current?.pct ?? 0) - (a.current?.pct ?? 0));
   const open = (queries.data ?? []).sort((a, b) => (RANK[b.flag as Flag] ?? 0) - (RANK[a.flag as Flag] ?? 0) || +new Date(a.created_at) - +new Date(b.created_at));

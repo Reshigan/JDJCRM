@@ -111,6 +111,44 @@ function checkGeo(h: any, g: { lat: number; lng: number; override_reason: string
   return { distance, override: inside ? null : g.override_reason };
 }
 
+export const STEPS = {
+  receive: { dept: 'PRE', cp: 'received_at' as Checkpoint, by: 'received_by', k: 2 },
+  lab_accept: { dept: 'ANA', cp: 'lab_accepted_at' as Checkpoint, by: 'lab_accepted_by', k: 3 },
+  release: { dept: 'ANA', cp: 'released_at' as Checkpoint, by: 'released_by', k: 4 },
+};
+export type Step = keyof typeof STEPS;
+export const PENDING = 'Pending —';
+
+/** One code path for the sample desk and the LIS: order, idempotency, breach gate, audit, nurse notice. */
+export async function applyStep(tx: Sql, id: string, step: Step, o: { actor: string | null; ip?: string; breach_reason?: string | null; at?: Date; source?: 'LIS' }) {
+  const s = STEPS[step];
+  const b = await loadBleed(tx, id, true);
+  if (b.cancelled_at || b.closed_at || b.outcome !== 'successful') fail(409, 'Bleed is no longer active');
+  if (b[s.cp]) return o.source ? { ok: true, already: true } : fail(409, 'Already recorded');
+  const prev = b[CHECKPOINTS[s.k]];
+  if (!prev) fail(409, 'The previous stage is not complete');
+  const at = o.at && o.at > new Date(prev) && o.at <= new Date() ? o.at : new Date();
+  const cfg = await bleedConfig(tx);
+  let reasons;
+  let pending = false;
+  try {
+    reasons = breachGate(b, s.k, at, cfg, o.breach_reason ?? null);
+  } catch (e) {
+    if (!o.source) throw e;
+    reasons = { ...(b.breach_reasons ?? {}), [s.k]: `${PENDING} recorded by the LIS after the limit` };
+    pending = true;
+  }
+  await tx`update bleeds set ${tx({ [s.cp]: at, [s.by]: o.actor, breach_reasons: tx.json(reasons) })} where id = ${id}`;
+  await audit(tx, { actor: o.actor, action: `bleed.${step}`, entity: 'bleed', id, ip: o.ip, data: { breach_reason: o.breach_reason ?? null, source: o.source ?? null } });
+  if (pending) {
+    const [d] = await tx`select id from departments where code = ${s.dept}`;
+    await notify(tx, { departments: [d?.id ?? 0], deptRoles: ['dept_manager'] }, { link: `/bleeds/${id}`, number: b.number, title: `Breach reason needed · ${INTERVALS[s.k].label} (recorded by LIS)` });
+  }
+  if (step === 'release' && b.nurse_id)
+    await notify(tx, { users: [b.nurse_id] }, { link: `/field/r/${b.request_id}`, number: b.number, title: `Report ready · file at ${b.hospital}`, body: `Reporting clock is running for ${b.number}.` });
+  return { ok: true };
+}
+
 export function bleedRoutes(app: FastifyInstance) {
   // --- Client Services: open a request with one or more patients (brief §6.6 multiple patients on one call) ---
   app.post('/api/bleed-requests', async (req, reply) => {
@@ -188,7 +226,7 @@ export function bleedRoutes(app: FastifyInstance) {
     const code = await deptCode(req);
     const wide = can(req.user.role, 'tickets.view_all') || code === 'NUR'; // PRE/ANA see only this bleed, not the request
     const [photos, siblings, timeline, people] = await Promise.all([
-      sql`select id, kind, size, created_at from bleed_photos where bleed_id = ${id} order by created_at`,
+      sql`select id, kind, size, sharpness, created_at from bleed_photos where bleed_id = ${id} order by created_at`,
       wide ? sql`select id, number, patient_name, folder_no from bleeds where request_id = ${b.request_id} and id <> ${id} order by number` : [],
       sql`select l.id, l.at, l.action, l.data, u.name as actor from audit_log l left join users u on u.id = l.actor_id
           where (entity = 'bleed' and entity_id = ${id}) or (${wide} and entity = 'bleed_request' and entity_id = ${b.request_id}) order by l.id`,
@@ -283,6 +321,8 @@ export function bleedRoutes(app: FastifyInstance) {
         tubes: z.string().max(2000).optional().transform((v) => z.array(z.object({ type: text(40), count: z.number().int().min(1).max(20) })).max(12).parse(JSON.parse(v || '[]'))),
         device_time: z.string().max(40).optional(),
         breach_reason: opt(1000),
+        requisition_sharpness: z.coerce.number().min(0).max(1e6).optional(),
+        sticker_sharpness: z.coerce.number().min(0).max(1e6).optional(),
       })
       .parse(fields);
     const ok = f.outcome === 'successful';
@@ -304,8 +344,9 @@ export function bleedRoutes(app: FastifyInstance) {
       mkdirSync(`${env.dataDir}/blobs`, { recursive: true });
       for (const [kind, file] of Object.entries(files)) {
         const { blob, keyWrapped } = encryptFile(file.data);
-        const [p] = await tx`insert into bleed_photos (bleed_id, kind, mime, size, key_wrapped, uploaded_by)
-          values (${id}, ${kind}, ${file.mime}, ${file.data.length}, ${keyWrapped}, ${req.user.id}) returning id`;
+        const sharp = kind === 'sticker' ? f.sticker_sharpness : f.requisition_sharpness;
+        const [p] = await tx`insert into bleed_photos (bleed_id, kind, mime, size, key_wrapped, uploaded_by, sharpness)
+          values (${id}, ${kind}, ${file.mime}, ${file.data.length}, ${keyWrapped}, ${req.user.id}, ${sharp ?? null}) returning id`;
         writeFileSync(`${env.dataDir}/blobs/${p.id}`, blob);
       }
       await tx`update bleeds set outcome = ${f.outcome}, outcome_reason = ${f.outcome_reason},
@@ -322,30 +363,26 @@ export function bleedRoutes(app: FastifyInstance) {
   });
 
   // Pre-Analytical accepts, lab accepts, lab releases (manual until the LIS interface exists).
-  const STEPS = {
-    receive: { dept: 'PRE', cp: 'received_at' as Checkpoint, by: 'received_by', k: 2, label: 'Accepted into Pre-Analytical' },
-    lab_accept: { dept: 'ANA', cp: 'lab_accepted_at' as Checkpoint, by: 'lab_accepted_by', k: 3, label: 'Accepted into laboratory' },
-    release: { dept: 'ANA', cp: 'released_at' as Checkpoint, by: 'released_by', k: 4, label: 'All results released' },
-  };
   app.post('/api/bleeds/:id/step', async (req) => {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
     const { step, breach_reason } = z.object({ step: z.enum(['receive', 'lab_accept', 'release']), breach_reason: opt(1000) }).parse(req.body);
-    const s = STEPS[step];
-    if ((await deptCode(req)) !== s.dept) fail(403, `Only ${s.dept === 'PRE' ? 'Pre-Analytical' : 'Analytical'} can do this`);
-    return sql.begin(async (tx) => {
-      const b = await loadBleed(tx, id, true);
-      const prev = b[CHECKPOINTS[s.k]];
-      if (b.cancelled_at || b.closed_at || b.outcome !== 'successful') fail(409, 'Bleed is no longer active');
-      if (b[s.cp]) fail(409, 'Already recorded');
-      if (!prev) fail(409, 'The previous stage is not complete');
-      const at = new Date();
-      const reasons = breachGate(b, s.k, at, await bleedConfig(tx), breach_reason);
-      await tx`update bleeds set ${tx({ [s.cp]: at, [s.by]: req.user.id, breach_reasons: tx.json(reasons) })} where id = ${id}`;
-      await audit(tx, { actor: req.user.id, action: `bleed.${step}`, entity: 'bleed', id, ip: req.ip, data: { breach_reason } });
-      if (step === 'release' && b.nurse_id)
-        await notify(tx, { users: [b.nurse_id] }, { link: `/field/r/${b.request_id}`, number: b.number, title: `Report ready · file at ${b.hospital}`, body: `Reporting clock is running for ${b.number}.` });
-      return { ok: true };
+    if ((await deptCode(req)) !== STEPS[step].dept) fail(403, `Only ${STEPS[step].dept === 'PRE' ? 'Pre-Analytical' : 'Analytical'} can do this`);
+    return sql.begin((tx) => applyStep(tx, id, step, { actor: req.user.id, ip: req.ip, breach_reason }));
+  });
+
+  // A late stage recorded by the LIS arrives without a reason: the owning department supplies it afterwards.
+  app.post('/api/bleeds/:id/breach-reason', async (req) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const b = z.object({ interval: z.number().int().min(0).max(5), reason: text(1000) }).parse(req.body);
+    const code = await deptCode(req);
+    if (INTERVALS[b.interval].dept !== code && req.user.role !== 'cs_supervisor') fail(403, 'Only the owning department or a Client Services supervisor');
+    await sql.begin(async (tx) => {
+      const x = await loadBleed(tx, id, true);
+      if (!String(x.breach_reasons?.[b.interval] ?? '').startsWith(PENDING)) fail(409, 'No breach reason is pending for this interval');
+      await tx`update bleeds set breach_reasons = ${tx.json({ ...x.breach_reasons, [b.interval]: b.reason })} where id = ${id}`;
+      await audit(tx, { actor: req.user.id, action: 'bleed.breach_reason', entity: 'bleed', id, ip: req.ip, data: { interval: INTERVALS[b.interval].label, reason: b.reason } });
     });
+    return { ok: true };
   });
 
   app.post('/api/bleeds/file', async (req) => {

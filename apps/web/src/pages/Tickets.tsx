@@ -21,7 +21,7 @@ export function Tickets() {
   };
   const { flag, ...serverParams } = p;
   const qs = new URLSearchParams(serverParams).toString();
-  const { data, isLoading } = useQuery({ queryKey: ['tickets', qs], queryFn: () => api<any[]>(`/tickets?${qs}`), refetchInterval: 30_000 });
+  const { data, isLoading } = useQuery({ queryKey: ['tickets', qs], queryFn: () => api<any[]>(`/tickets?${qs}`), refetchInterval: 60_000 });
 
   const counts = useMemo(() => {
     const c = { red: 0, amber: 0, green: 0, review: 0 };

@@ -251,7 +251,7 @@ export function Ticket() {
   const { data: me } = useMe();
   const { data: lk } = useLookups();
   const qc = useQueryClient();
-  const { data: t, error, isLoading } = useQuery({ queryKey: ['ticket', id], queryFn: () => api(`/tickets/${id}`), refetchInterval: 30_000 });
+  const { data: t, error, isLoading } = useQuery({ queryKey: ['ticket', id], queryFn: () => api(`/tickets/${id}`), refetchInterval: 60_000 });
   const act = useAct(id);
   const [modal, setModal] = useState<'reassign' | 'reprioritise' | null>(null);
   const [upErr, setUpErr] = useState<unknown>(null);

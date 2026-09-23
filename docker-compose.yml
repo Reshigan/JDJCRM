@@ -16,6 +16,9 @@ x-api-env: &api-env
   LDAP_BASE_DN: ${LDAP_BASE_DN:-}
   LDAP_UPN_SUFFIX: ${LDAP_UPN_SUFFIX:-}
   ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@baton.local}
+  LIS_WEBHOOK_SECRET: ${LIS_WEBHOOK_SECRET:-}
+  LIS_VALIDATE_URL: ${LIS_VALIDATE_URL:-}
+  LIS_TOKEN: ${LIS_TOKEN:-}
   TZ: Africa/Johannesburg
 
 services:
@@ -76,7 +79,8 @@ services:
         export PGPASSWORD=$$(cat /run/secrets/db_password)
         while true; do
           ts=$$(date +%F_%H%M)
-          pg_dump -h db -U baton -Fc baton > /backups/baton_$$ts.dump && tar czf /backups/blobs_$$ts.tgz -C /data . && echo "backup $$ts ok"
+          pg_dump -h db -U baton -Fc baton > /backups/baton_$$ts.dump && tar czf /backups/blobs_$$ts.tgz -C /data . && echo "backup $$ts ok" \
+            && psql -h db -U baton -d baton -qc "insert into settings values ('last_backup', to_jsonb(now()::text)) on conflict (key) do update set value = excluded.value"
           find /backups -type f -mtime +14 -delete
           sleep 86400
         done

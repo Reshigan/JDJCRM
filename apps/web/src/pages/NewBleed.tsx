@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Plus, Trash2, UserRound } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { formatMinutes, INTERVALS } from '@baton/core';
 import { api, useLookups } from '../api';
-import { Button, Card, ErrorText, Field, Input, Select, Textarea } from '../ui';
+import { Badge, Button, Card, cx, ErrorText, Field, Input, Select, Textarea } from '../ui';
 
 type Patient = { patient_name: string; folder_no: string; ward: string; bed: string };
 const blank: Patient = { patient_name: '', folder_no: '', ward: '', bed: '' };
@@ -19,10 +19,10 @@ export function NewBleed() {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const hospitals = lk?.organisations.filter((o) => o.kind === 'hospital') ?? [];
-  const nurseDept = lk?.departments.find((d) => d.code === 'NUR')?.id;
-  const nurses = lk?.users.filter((u) => u.department_id === nurseDept) ?? [];
   const hospital = hospitals.find((h) => String(h.id) === hospitalId);
-  const allocated = nurses.find((n) => n.id === (nurseId || hospital?.nurse_id));
+  const { data: ranked } = useQuery({ queryKey: ['dispatch', hospitalId], queryFn: () => api<any[]>(`/dispatch?hospital_id=${hospitalId}`), enabled: !!hospitalId });
+  // Default: the suggested nurse (workload + distance), unless CS picks someone else.
+  const chosen = nurseId || ranked?.find((n) => n.suggested)?.id || hospital?.nurse_id || '';
   const setP = (i: number, k: keyof Patient, v: string) => setPatients(patients.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -32,7 +32,7 @@ export function NewBleed() {
     setError(null);
     try {
       const r = await api('/bleed-requests', {
-        body: { hospital_id: +hospitalId, nurse_id: nurseId || null, requested_by: fd.get('requested_by'), contact_phone: fd.get('contact_phone'), notes: fd.get('notes'), patients },
+        body: { hospital_id: +hospitalId, nurse_id: chosen || null, requested_by: fd.get('requested_by'), contact_phone: fd.get('contact_phone'), notes: fd.get('notes'), patients },
       });
       qc.invalidateQueries({ queryKey: ['bleeds'] });
       nav(`/bleeds/${r.bleed_ids[0]}`);
@@ -78,19 +78,23 @@ export function NewBleed() {
       </div>
 
       <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-        <Card title="Nurse">
+        <Card title="Dispatch to">
           {hospital ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <UserRound size={16} className="text-brand" />
-                {allocated ? <span><b>{allocated.name}</b> will be notified</span> : <span className="text-bad">No nurse allocated to this hospital — choose one</span>}
-              </div>
-              <Select value={nurseId} onChange={(e) => setNurseId(e.target.value)}>
-                <option value="">{hospital.nurse_id ? 'Allocated nurse' : 'Choose a nurse'}</option>
-                {nurses.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
-              </Select>
+            <div className="space-y-2" role="radiogroup" aria-label="Nurse">
+              {(ranked ?? []).map((n) => (
+                <button type="button" role="radio" aria-checked={chosen === n.id} key={n.id} onClick={() => setNurseId(n.id)}
+                  className={cx('w-full rounded-lg border p-2.5 text-left', chosen === n.id ? 'border-brand bg-brand-soft/60' : 'border-line hover:bg-surface-2')}>
+                  <div className="flex items-center justify-between gap-2 text-sm font-medium">
+                    {n.name}
+                    {n.suggested && <Badge tone="brand"><Sparkles size={12} />Suggested</Badge>}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted">{n.reasons.join(' · ')}</div>
+                </button>
+              ))}
+              {ranked && !ranked.length && <p className="text-sm text-bad">No active nursing staff.</p>}
+              <p className="text-[11px] text-muted">Ranked by current workload, then distance from the hospital of each nurse's last checkpoint (today only).</p>
             </div>
-          ) : <p className="text-sm text-muted">Choose a hospital to see its allocated nurse.</p>}
+          ) : <p className="text-sm text-muted">Choose a hospital to see who can go.</p>}
         </Card>
         <Card title="Time limits">
           <ul className="space-y-1.5 text-sm">

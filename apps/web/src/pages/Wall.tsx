@@ -5,10 +5,12 @@ import { BLEED_STATES, can, formatMinutes, patientRef, type BleedState } from '@
 import { useMe } from '../api';
 import { BatonBar, BatonMark, cx, DeptClock, FlagPill } from '../ui';
 import { TILES, useLive } from './Dashboard';
+import { useLiveEvents } from '../live';
 
 export function Wall() {
   const { data: me, isLoading } = useMe();
   const { live, active, open } = useLive();
+  useLiveEvents(!!me);
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     document.documentElement.classList.add('dark');

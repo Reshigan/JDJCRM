@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Droplet, Gauge, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
+import { Bell, Droplet, Gauge, Route, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
 import { can, ROLES } from '@baton/core';
 import { api, useLookups, useMe } from './api';
+import { useLiveEvents } from './live';
 import { ago, BatonMark, Button, cx } from './ui';
 
 function useTheme() {
@@ -21,7 +22,7 @@ function Notifications() {
   const [open, setOpen] = useState(false);
   const nav = useNavigate();
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ['notifications'], queryFn: () => api('/notifications'), refetchInterval: 30_000 });
+  const { data } = useQuery({ queryKey: ['notifications'], queryFn: () => api('/notifications'), refetchInterval: 60_000 });
   const read = useMutation({ mutationFn: (ids?: number[]) => api('/notifications/read', { body: { ids } }), onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }) });
   return (
     <div className="relative">
@@ -64,6 +65,7 @@ export function Shell() {
   const loc = useLocation();
   const qc = useQueryClient();
   const search = useRef<HTMLInputElement>(null);
+  useLiveEvents(!!me?.mfa_ok);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -107,6 +109,7 @@ export function Shell() {
           {can(me.role, 'ticket.open') && <NavLink to="/tickets/new" className={link}><Plus size={17} />New query</NavLink>}
           {can(me.role, 'dashboard.view') && <NavLink to="/bleeds" end className={link}><Droplet size={17} />Bleed board</NavLink>}
           {can(me.role, 'bleed.open') && <NavLink to="/bleeds/new" className={link}><Plus size={17} />New bleed request</NavLink>}
+          {can(me.role, 'dashboard.view') && <NavLink to="/nurses" className={link}><Route size={17} />Nurse runs</NavLink>}
           {(dept === 'PRE' || dept === 'ANA') && <NavLink to="/samples" className={link}><ScanLine size={17} />Sample desk</NavLink>}
           {dept === 'NUR' && <NavLink to="/field" className={link}><Smartphone size={17} />Field app</NavLink>}
           {can(me.role, 'admin.configure') && <NavLink to="/admin" className={link}><Settings2 size={17} />Administration</NavLink>}

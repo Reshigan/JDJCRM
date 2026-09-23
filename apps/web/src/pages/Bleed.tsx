@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Ban, Lock, MapPin, MapPinOff, UserRound, WifiOff } from 'lucide-react';
-import { BLEED_STATES, can, CHECKPOINTS, formatMinutes, OUTCOMES, sast, type BleedState } from '@baton/core';
+import { BLEED_STATES, can, CHECKPOINTS, formatMinutes, OUTCOMES, PHOTO_SHARPNESS_MIN, sast, type BleedState } from '@baton/core';
 import { api, formValues, useLookups, useMe } from '../api';
 import { Badge, BatonBar, Button, Card, cx, ErrorText, Field, FlagPill, Modal, Select, Textarea } from '../ui';
 
@@ -23,12 +23,24 @@ const EVENT: Record<string, (d: any) => string> = {
   'photo.viewed': (d) => `Viewed ${d.kind} photo`,
 };
 
+function PendingReason({ id, interval, onDone }: { id: string; interval: number; onDone: () => void }) {
+  const [v, setV] = useState('');
+  const m = useMutation({ mutationFn: () => api(`/bleeds/${id}/breach-reason`, { body: { interval, reason: v } }), onSuccess: onDone });
+  return (
+    <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); m.mutate(); }}>
+      <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Reason needed (late, from LIS)" className="h-7 w-44 rounded-md border border-warn/60 bg-surface px-2 text-xs" required />
+      <Button size="sm" className="h-7" disabled={m.isPending}>Save</Button>
+      {m.error && <span className="text-bad">{(m.error as Error).message}</span>}
+    </form>
+  );
+}
+
 export function Bleed() {
   const { id } = useParams() as { id: string };
   const { data: me } = useMe();
   const { data: lk } = useLookups();
   const qc = useQueryClient();
-  const { data: b, error, isLoading } = useQuery({ queryKey: ['bleed', id], queryFn: () => api(`/bleeds/${id}`), refetchInterval: 20_000 });
+  const { data: b, error, isLoading } = useQuery({ queryKey: ['bleed', id], queryFn: () => api(`/bleeds/${id}`), refetchInterval: 60_000 });
   const [modal, setModal] = useState<'cancel' | 'nurse' | null>(null);
   const act = useMutation({
     mutationFn: ({ path, body }: { path: string; body?: object }) => api(path, { body: body ?? {} }),
@@ -88,7 +100,7 @@ export function Bleed() {
                   <td className="num px-5 py-2.5">{b[CHECKPOINTS[i + 1]] ? <>{sast(b[CHECKPOINTS[i + 1]]).slice(11)} <span className="font-sans text-xs text-muted">{byCp[i + 1]}</span></> : '—'}</td>
                   <td className="num px-5 py-2.5">{iv.status === 'pending' ? '—' : `${formatMinutes(iv.used)} / ${formatMinutes(iv.limit)}`}</td>
                   <td className="px-5 py-2.5">{iv.status === 'pending' ? <span className="text-xs text-muted">Not started</span> : <FlagPill flag={iv.flag} />}</td>
-                  <td className="px-5 py-2.5 text-xs">{b.breach_reasons?.[i] ?? ''}</td>
+                  <td className="px-5 py-2.5 text-xs">{String(b.breach_reasons?.[i] ?? '').startsWith('Pending —') ? <PendingReason id={id} interval={i} onDone={() => qc.invalidateQueries({ queryKey: ['bleed', id] })} /> : b.breach_reasons?.[i] ?? ''}</td>
                 </tr>
               ))}
             </tbody>
@@ -113,7 +125,7 @@ export function Bleed() {
                 {b.photos.map((p: any) => (
                   <a key={p.id} href={`/api/bleed-photos/${p.id}`} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-line">
                     <img src={`/api/bleed-photos/${p.id}`} alt={`${p.kind} photograph`} className="aspect-[4/3] w-full object-cover" />
-                    <div className="px-2 py-1 text-xs text-muted">{p.kind === 'sticker' ? 'Hospital sticker' : 'Requisition number'} · viewing is audited</div>
+                    <div className="px-2 py-1 text-xs text-muted">{p.kind === 'sticker' ? 'Hospital sticker' : 'Requisition number'} · viewing is audited{p.sharpness != null && p.sharpness < PHOTO_SHARPNESS_MIN && <span className="ml-1 font-medium text-warn">· may be blurry</span>}</div>
                   </a>
                 ))}
               </div>

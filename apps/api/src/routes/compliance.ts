@@ -4,8 +4,14 @@ import { z } from 'zod';
 import { requirePerm } from '../auth';
 import { audit, fail, sql } from '../db';
 import { insights } from '../insights';
+import { status } from '../ops';
 
 export function complianceRoutes(app: FastifyInstance) {
+  app.get('/api/system/status', async (req) => {
+    requirePerm(req, 'admin.configure');
+    return status();
+  });
+
   app.get('/api/insights', async (req) => {
     requirePerm(req, 'dashboard.view');
     return insights();

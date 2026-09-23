@@ -17,7 +17,7 @@ export function Bleeds() {
   const scope = params.get('scope') ?? 'open';
   const qs = new URLSearchParams({ ...Object.fromEntries(params), scope }).toString();
   const drill = [...params.keys()].some((k) => k !== 'scope');
-  const { data, isLoading } = useQuery({ queryKey: ['bleeds', drill ? qs : scope], queryFn: () => api<any[]>(`/bleeds?${qs}`), refetchInterval: 20_000 });
+  const { data, isLoading } = useQuery({ queryKey: ['bleeds', drill ? qs : scope], queryFn: () => api<any[]>(`/bleeds?${qs}`), refetchInterval: 60_000 });
 
   const rows = useMemo(
     () => [...(data ?? [])].sort((a, b) => Number(ENDED.includes(a.state)) - Number(ENDED.includes(b.state)) || RANK[b.flag as Flag] - RANK[a.flag as Flag] || +new Date(a.opened_at) - +new Date(b.opened_at)),

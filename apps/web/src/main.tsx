@@ -18,6 +18,7 @@ import { FieldHome, FieldRequest, FieldShell } from './pages/Field';
 import { Dashboard } from './pages/Dashboard';
 import { Wall } from './pages/Wall';
 import { Search } from './pages/Search';
+import { Nurses } from './pages/Nurses';
 import { Home } from './Shell';
 
 const qc = new QueryClient({
@@ -39,6 +40,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'dashboard/:tab?', element: <Dashboard /> },
       { path: 'search', element: <Search /> },
+      { path: 'nurses', element: <Nurses /> },
       { path: 'tickets', element: <Tickets /> },
       { path: 'tickets/new', element: <NewTicket /> },
       { path: 'tickets/:id', element: <Ticket /> },
