@@ -17,7 +17,7 @@ export async function migrate() {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (/[\/]migrate\.[jt]s$/.test(process.argv[1] ?? '')) { // run as a script, not when bundled into server
   await migrate();
   await sql.end();
 }

@@ -7,6 +7,7 @@ const fileOr = (name: string) => {
 
 export const env = {
   databaseUrl: fileOr('DATABASE_URL') ?? 'postgres://baton@127.0.0.1:5433/baton',
+  dbPassword: fileOr('PGPASSWORD'), // used when the URL carries no password (Docker secret)
   masterKey: fileOr('MASTER_KEY'), // base64, 32 bytes; required for attachments
   dataDir: process.env.DATA_DIR ?? './data',
   appUrl: process.env.APP_URL ?? 'http://localhost:5173',

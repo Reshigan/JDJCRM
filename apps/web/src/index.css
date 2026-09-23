@@ -1,0 +1,101 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/600.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Baton tokens. Brand never collides with status colours. */
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface-2: #f0f2f7;
+  --line: #e3e6ee;
+  --text: #0e1726;
+  --muted: #5b6478;
+  --brand: #3d4fe0;
+  --brand-ink: #ffffff;
+  --brand-soft: #eceefe;
+  --green: #15803d;
+  --green-soft: #dcfce7;
+  --amber: #b45309;
+  --amber-soft: #fef3c7;
+  --red: #b91c1c;
+  --red-soft: #fee2e2;
+  --violet: #6d28d9;
+  --violet-soft: #ede9fe;
+  --shadow: 0 1px 2px rgb(14 23 38 / 0.04), 0 4px 16px rgb(14 23 38 / 0.04);
+}
+.dark {
+  --bg: #0a101c;
+  --surface: #111a2b;
+  --surface-2: #17223a;
+  --line: #22304a;
+  --text: #e6eaf2;
+  --muted: #8d97ad;
+  --brand: #7482ff;
+  --brand-ink: #0a101c;
+  --brand-soft: #1d2552;
+  --green: #4ade80;
+  --green-soft: #0f2e1d;
+  --amber: #fbbf24;
+  --amber-soft: #33260a;
+  --red: #f87171;
+  --red-soft: #3a1414;
+  --violet: #a78bfa;
+  --violet-soft: #2a1f4d;
+  --shadow: none;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-ok: var(--green);
+  --color-ok-soft: var(--green-soft);
+  --color-warn: var(--amber);
+  --color-warn-soft: var(--amber-soft);
+  --color-bad: var(--red);
+  --color-bad-soft: var(--red-soft);
+  --color-geo: var(--violet);
+  --color-geo-soft: var(--violet-soft);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+dialog::backdrop {
+  background: rgb(10 16 28 / 0.45);
+  backdrop-filter: blur(2px);
+}
+@keyframes pulse-seg {
+  50% { opacity: 0.45; }
+}
+.pulse { animation: pulse-seg 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }

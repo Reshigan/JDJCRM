@@ -1,0 +1,10 @@
+{
+  "name": "Baton",
+  "short_name": "Baton",
+  "description": "Every handover, owned.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E1726",
+  "theme_color": "#0E1726",
+  "icons": [{ "src": "/baton.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

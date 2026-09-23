@@ -54,10 +54,11 @@ export const escalationLevel = (pct: number, th = DEFAULT_THRESHOLDS) => th.filt
 export const flagFor = (pct: number, th = DEFAULT_THRESHOLDS): Flag =>
   pct >= th[1] ? 'red' : pct >= th[0] ? 'amber' : 'green';
 
-export function formatMinutes(m: number): string {
+/** Working-time durations stay in hours (a "day" of working time is ambiguous); pass days for elapsed wall time. */
+export function formatMinutes(m: number, days = false): string {
   const neg = m < 0;
   m = Math.round(Math.abs(m));
-  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+  const d = days ? Math.floor(m / 1440) : 0, h = Math.floor((m - d * 1440) / 60), mm = m % 60;
   const s = d ? `${d}d ${h}h` : h ? `${h}h ${mm}m` : `${mm}m`;
   return neg ? `-${s}` : s;
 }

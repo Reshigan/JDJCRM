@@ -30,7 +30,7 @@ describe.skipIf(!url)('query lifecycle (API + DB)', async () => {
 
   beforeAll(async () => {
     await sql.unsafe('drop schema public cascade; create schema public');
-    await seed(true);
+    await seed(true, false);
     app = await buildApp();
     await login('agent', 'agent@baton.local');
     await login('pre', 'preanalytical@baton.local');

@@ -1,7 +1,9 @@
 import postgres from 'postgres';
 import { env } from './env';
 
-export const sql = postgres(env.databaseUrl, { max: 10, onnotice: () => {}, transform: { undefined: null } });
+export const sql = postgres(env.databaseUrl, { max: 10, pass: env.dbPassword, onnotice: () => {}, transform: { undefined: null },
+  types: { date: { to: 1082, from: [1082], serialize: (x: string) => x, parse: (x: string) => x } }, // keep SQL dates as 'YYYY-MM-DD'
+});
 export type Sql = typeof sql | postgres.TransactionSql;
 
 export class HttpError extends Error {
