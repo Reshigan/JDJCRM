@@ -7,6 +7,7 @@ const mailer = env.smtp.host
       host: env.smtp.host,
       port: env.smtp.port,
       auth: env.smtp.user ? { user: env.smtp.user, pass: env.smtp.pass } : undefined,
+      requireTLS: process.env.SMTP_REQUIRE_TLS !== 'false', // STARTTLS to the relay unless explicitly disabled
     })
   : null;
 
@@ -31,6 +32,7 @@ export async function notify(db: Sql, to: Audience, n: { ticketId?: string; link
   const subject = n.number ? `${n.number} · ${n.title}` : n.title;
   const path = n.link ?? (n.ticketId ? `/tickets/${n.ticketId}` : null);
   const link = path ? `\n\nOpen: ${env.appUrl}${path}` : '';
-  setImmediate(() => sendMail(rows.map((r) => r.email), subject, `${n.body ?? n.title}${link}`));
+  // E-mail carries no free text (it may hold patient details): title + link only. Details stay in the app.
+  setImmediate(() => sendMail(rows.map((r) => r.email), subject, `${n.title}${link}`));
 }
 

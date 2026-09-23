@@ -2,6 +2,7 @@
 import { sql } from './db';
 import { bleedEscalationTick, escalationTick } from './escalation';
 import { reportTick } from './reports';
+import { retentionTick } from './retention';
 
 const reserved = await sql.reserve();
 const tick = async () => {
@@ -12,6 +13,7 @@ const tick = async () => {
     if (n) console.log(`[worker] escalated ${n}`);
     await sql`delete from sessions where expires_at < now()`;
     await reportTick();
+    if (new Date().getUTCMinutes() === 0) await retentionTick(); // hourly
   } catch (e) {
     console.error('[worker]', e);
   }

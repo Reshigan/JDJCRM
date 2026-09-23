@@ -22,3 +22,10 @@ export function audit(
   return db`insert into audit_log (actor_id, action, entity, entity_id, data, ip)
     values (${e.actor}, ${e.action}, ${e.entity}, ${e.id == null ? null : String(e.id)}, ${db.json((e.data ?? {}) as any)}, ${e.ip ?? null})`;
 }
+
+/** Read audit for patient-identifiable records: one entry per user per record per 15 minutes. */
+export async function auditView(db: Sql, actor: string, entity: string, id: string, ip?: string) {
+  const [recent] = await db`select 1 from audit_log where actor_id = ${actor} and action = 'viewed' and entity = ${entity}
+    and entity_id = ${id} and at > now() - interval '15 minutes' limit 1`;
+  if (!recent) await audit(db, { actor, action: 'viewed', entity, id, ip });
+}

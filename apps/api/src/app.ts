@@ -7,11 +7,13 @@ import { HttpError } from './db';
 import { adminRoutes } from './routes/admin';
 import { bleedRoutes } from './routes/bleeds';
 import { dashboardRoutes } from './routes/dashboard';
+import { complianceRoutes } from './routes/compliance';
 import { miscRoutes } from './routes/misc';
 import { ticketRoutes } from './routes/tickets';
 
 export async function buildApp() {
-  const app = Fastify({ logger: process.env.NODE_ENV === 'test' ? false : { level: 'info' }, trustProxy: true, bodyLimit: 1024 * 1024 });
+  const app = Fastify({ logger: process.env.NODE_ENV === 'test' ? false : { level: 'info', serializers: { req: (r) => ({ method: r.method, url: r.url.split('?')[0], ip: r.ip }) } }, // no query strings: they carry patient names
+    trustProxy: true, bodyLimit: 1024 * 1024 });
   await app.register(cookie);
   await app.register(multipart);
 
@@ -35,5 +37,6 @@ export async function buildApp() {
   adminRoutes(app);
   bleedRoutes(app);
   dashboardRoutes(app);
+  complianceRoutes(app);
   return app;
 }

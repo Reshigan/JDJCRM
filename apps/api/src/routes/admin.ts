@@ -33,7 +33,7 @@ function pick(r: Res, body: any) {
 
 export function adminRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (req) => {
-    if (req.url.startsWith('/api/admin/')) requirePerm(req, 'admin.configure');
+    if (req.routeOptions.url?.startsWith('/api/admin')) requirePerm(req, 'admin.configure'); // matched pattern, not raw URL
   });
 
   app.get('/api/admin/:res', async (req) => {

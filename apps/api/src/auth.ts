@@ -28,7 +28,8 @@ async function mfaRequired(u: any) {
 export function authPlugin(app: FastifyInstance) {
   app.addHook('preHandler', async (req) => {
     const mode = req.routeOptions.config?.auth;
-    if (mode === 'public' || !req.url.startsWith('/api/')) return;
+    // Decide on the matched route pattern, never req.url: '/api/%61dmin' is decoded by the router but not by startsWith.
+    if (mode === 'public' || !req.routeOptions.url) return; // unmatched → 404 from Fastify
     const raw = req.cookies[COOKIE];
     const [row] = raw
       ? await sql`
@@ -45,8 +46,17 @@ export function authPlugin(app: FastifyInstance) {
 
   const Login = z.object({ username: z.string().trim().min(1).max(200), password: z.string().min(1).max(500) });
 
+  // Per-IP throttle on failed sign-ins (covers AD short names that match no local row).
+  const fails = new Map<string, { n: number; until: number }>();
+  const throttled = (ip: string) => (fails.get(ip)?.until ?? 0) > Date.now() && (fails.get(ip)?.n ?? 0) >= 20;
+  const failed = (ip: string) => {
+    const f = fails.get(ip);
+    fails.set(ip, f && f.until > Date.now() ? { n: f.n + 1, until: f.until } : { n: 1, until: Date.now() + 15 * 60_000 });
+  };
+
   app.post('/api/auth/login', { config: { auth: 'public' } }, async (req, reply) => {
     const { username, password } = Login.parse(req.body);
+    if (throttled(req.ip)) fail(429, 'Too many failed sign-ins from this device. Try again later.');
     let [u] = await sql`select * from users where email = ${username}`;
 
     if (u?.locked_until && new Date(u.locked_until) > new Date()) fail(423, 'Account temporarily locked. Try again later.');
@@ -63,6 +73,8 @@ export function authPlugin(app: FastifyInstance) {
           on conflict (email) do update set name = excluded.name, role = excluded.role, department_id = excluded.department_id
             where users.auth = 'ad'
           returning *`;
+        // Re-apply lock and active checks to the AD account itself (the typed username may not be its e-mail).
+        if (u?.locked_until && new Date(u.locked_until) > new Date()) fail(423, 'Account temporarily locked. Try again later.');
         ok = !!u?.active;
       }
     } else ok = verifyPassword(password, u.password_hash);
@@ -70,13 +82,15 @@ export function authPlugin(app: FastifyInstance) {
     if (!ok || !u) {
       if (u) await sql`update users set failed_logins = failed_logins + 1,
         locked_until = case when failed_logins + 1 >= 5 then now() + interval '15 minutes' end where id = ${u.id}`;
+      failed(req.ip);
       await audit(sql, { actor: u?.id ?? null, action: 'auth.failed', entity: 'user', id: u?.id, data: { username }, ip: req.ip });
       fail(401, 'Invalid credentials');
     }
     const needMfa = await mfaRequired(u);
     const t = token();
     await sql`insert into sessions (id, user_id, mfa_ok, expires_at) values (${sha256(t)}, ${u.id}, ${!needMfa}, now() + ${TTL_H + ' hours'}::interval)`;
-    await sql`update users set failed_logins = 0, locked_until = null, last_login_at = now() where id = ${u.id}`;
+    // MFA failures keep counting towards the lock; only a completed MFA verification resets the counter.
+    await sql`update users set failed_logins = case when ${needMfa} then failed_logins else 0 end, last_login_at = now() where id = ${u.id}`;
     await audit(sql, { actor: u.id, action: 'auth.login', entity: 'user', id: u.id, data: { method: u.auth }, ip: req.ip });
     reply.setCookie(COOKIE, t, { httpOnly: true, sameSite: 'strict', secure, path: '/' });
     return { mfa: !needMfa ? 'ok' : u.mfa_enabled ? 'verify' : 'setup' };

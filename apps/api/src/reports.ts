@@ -4,6 +4,7 @@ import { bleedIntervals, bleedState, BLEED_STATES, formatMinutes, INTERVALS, pat
 import { analytics, bleedRows, queryRows, type Filters } from './analytics';
 import { audit, sql } from './db';
 import { sendMail } from './notify';
+import { insights } from './insights';
 import { bleedConfig } from './routes/bleeds';
 
 const mins = (m: number | null | undefined) => (m == null ? '' : Math.round(m));
@@ -73,9 +74,9 @@ function summaryText(title: string, a: Awaited<ReturnType<typeof analytics>>) {
 }
 
 export async function sendReport(kind: 'daily' | 'monthly', f: Filters, to: string[]) {
-  const a = await analytics(f);
+  const [a, ins] = await Promise.all([analytics(f), insights()]);
   const title = kind === 'daily' ? 'Baton daily operations summary' : 'Baton monthly management summary';
-  await sendMail(to, `${title} · ${f.from}${kind === 'monthly' ? ` to ${f.to}` : ''}`, summaryText(title, a), [
+  await sendMail(to, `${title} · ${f.from}${kind === 'monthly' ? ` to ${f.to}` : ''}`, summaryText(title, a) + (ins.length ? `\n\nINSIGHTS\n${ins.map((i) => `  ${i.tone === 'good' ? '▲' : '!'} ${i.title}`).join('\n')}` : ''), [
     { filename: `baton-${kind}-${f.from}.xlsx`, content: await workbook(f) },
   ]);
   await audit(sql, { actor: null, action: `report.${kind}`, entity: 'report', id: f.from, data: { to } });

@@ -58,3 +58,6 @@ export function encryptFile(data: Buffer) {
   return { blob: seal(dek, data), keyWrapped: seal(master(), dek).toString('base64') };
 }
 export const decryptFile = (blob: Buffer, keyWrapped: string) => open(open(master(), Buffer.from(keyWrapped, 'base64')), blob);
+
+/** Master-key rotation: re-wrap a file's data key; the encrypted file itself is untouched. */
+export const rewrap = (keyWrapped: string, oldKey: Buffer, newKey: Buffer) => seal(newKey, open(oldKey, Buffer.from(keyWrapped, 'base64'))).toString('base64');

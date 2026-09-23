@@ -6,7 +6,7 @@ import {
   ROOT_CAUSES, sastYearMonth, ticketActions, type AssignmentAction, type TicketAction,
 } from '@baton/core';
 import { requirePerm } from '../auth';
-import { audit, fail, sql, type Sql } from '../db';
+import { audit, auditView, fail, sql, type Sql } from '../db';
 import { decryptFile, encryptFile } from '../crypto';
 import { env } from '../env';
 import { notify } from '../notify';
@@ -73,8 +73,9 @@ async function load(db: Sql, id: string, forUpdate = false) {
   return { t, assignments, calls };
 }
 
+const DEPT_ROLES = ['dept_responder', 'dept_manager'];
 const visible = (req: FastifyRequest, as: any[]) =>
-  can(req.user.role, 'tickets.view_all') || as.some((a) => a.department_id === req.user.department_id && a.state !== 'cancelled');
+  can(req.user.role, 'tickets.view_all') || (DEPT_ROLES.includes(req.user.role) && as.some((a) => a.department_id === req.user.department_id && a.state !== 'cancelled'));
 
 /** Restart an assignment's clock (new cycle after reopen / not satisfied). */
 async function restart(db: Sql, sla: SlaContext, t: any, a: any, limit: number) {
@@ -141,6 +142,7 @@ export function ticketRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
     const { t, assignments, calls } = await load(sql, id);
     if (!visible(req, assignments)) fail(404, 'Ticket not found');
+    await auditView(sql, req.user.id, 'ticket', id, req.ip);
     const sla = await slaContext(sql);
     const [meta, attachments, notes, timeline] = await Promise.all([
       sql`select c.name as category, c.clock, s.name as site, o.name as organisation, u.name as logged_by_name

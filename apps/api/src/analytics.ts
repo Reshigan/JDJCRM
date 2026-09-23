@@ -54,7 +54,7 @@ function days(f: { from: string; to: string }) {
 export async function bleedRows(db: Sql, f: Filters) {
   const [a, b] = range(f);
   return db`
-    select bl.*, r.number as request_number, r.hospital_id, r.nurse_id, r.site_id, r.arrive_override, h.name as hospital, s.name as site, s.region, n.name as nurse
+    select bl.*, r.number as request_number, r.hospital_id, r.nurse_id, r.site_id, r.arrive_override, r.arrive_suspect, h.name as hospital, s.name as site, s.region, n.name as nurse
     from bleeds bl join bleed_requests r on r.id = bl.request_id join organisations h on h.id = r.hospital_id
     left join sites s on s.id = r.site_id left join users n on n.id = r.nurse_id
     where bl.opened_at >= ${a} and bl.opened_at < ${b}
@@ -139,7 +139,7 @@ export async function analytics(f: Filters, db: Sql = sql) {
     bleeds: {
       requested: bleeds.length, cancelled: bleeds.length - counted.length, completed: done.length,
       compliance: pct(done.filter(within).length, done.length), median_tat: median(done.map((b) => b.total!)),
-      geo_exceptions: counted.filter((b) => b.arrive_override || b.file_override).length,
+      geo_exceptions: counted.filter((b) => b.arrive_override || b.file_override || b.arrive_suspect || b.file_suspect).length,
       late_sync: counted.filter((b) => b.offline_sync).length,
       stages, trend: bleedTrend,
       by_site: bleedBy((b) => b.site_id, (b) => b.site ?? '—'),

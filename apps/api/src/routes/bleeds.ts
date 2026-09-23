@@ -7,7 +7,7 @@ import {
   sastYearMonth, type Checkpoint,
 } from '@baton/core';
 import { requirePerm } from '../auth';
-import { audit, fail, sql, type Sql } from '../db';
+import { audit, auditView, fail, sql, type Sql } from '../db';
 import { decryptFile, encryptFile } from '../crypto';
 import { env } from '../env';
 import { notify } from '../notify';
@@ -45,7 +45,8 @@ function breachGate(b: any, k: number, at: Date, cfg: { limits: number[]; th: nu
 }
 
 async function deptCode(req: FastifyRequest) {
-  if (!req.user.department_id) return null;
+  // Only department roles act for a department; admin/management never do, whatever department_id says.
+  if (!req.user.department_id || !['dept_responder', 'dept_manager'].includes(req.user.role)) return null;
   const [d] = await sql`select code from departments where id = ${req.user.department_id}`;
   return (d?.code as string) ?? null;
 }
@@ -61,7 +62,7 @@ function visible(req: FastifyRequest, code: string | null, b: any) {
 
 const BASE = sql`
   select b.*, r.number as request_number, r.hospital_id, r.nurse_id, r.requested_by, r.contact_phone, r.notes, r.site_id,
-    r.arrive_distance_m, r.arrive_override, r.arrive_accuracy_m, h.name as hospital, h.lat as hospital_lat, h.lng as hospital_lng,
+    r.arrive_distance_m, r.arrive_override, r.arrive_accuracy_m, r.arrive_suspect, h.name as hospital, h.lat as hospital_lat, h.lng as hospital_lng,
     h.radius_m, n.name as nurse
   from bleeds b join bleed_requests r on r.id = b.request_id join organisations h on h.id = r.hospital_id
   left join users n on n.id = r.nurse_id`;
@@ -76,13 +77,28 @@ const decorate = (b: any, cfg: { limits: number[]; th: [number, number, number] 
   ...b,
   state: bleedState(b),
   ...bleedIntervals(b, cfg.limits, new Date(), cfg.th),
-  geo_exception: !!(b.arrive_override || b.file_override),
+  geo_exception: !!(b.arrive_override || b.file_override || b.arrive_suspect || b.file_suspect),
 });
 
 async function nextNumber(db: Sql, kind: 'HBR' | 'BLD') {
   const prefix = `${kind}-${sastYearMonth(new Date())}`;
   const [{ n }] = await db`insert into counters values (${prefix}, 1) on conflict (prefix) do update set n = counters.n + 1 returning n`;
   return `${prefix}-${String(n).padStart(4, '0')}`;
+}
+
+/** Brief §6.3 proof of presence: a position the same nurse could not physically have reached is flagged as suspect. */
+async function plausibility(db: Sql, userId: string, g: { lat: number; lng: number }, at: Date) {
+  const [prev] = await db`
+    select at, lat, lng from (
+      select arrived_at as at, arrive_lat as lat, arrive_lng as lng from bleed_requests where arrived_by = ${userId} and arrive_lat is not null
+      union all
+      select filed_at, file_lat, file_lng from bleeds where filed_by = ${userId} and file_lat is not null
+    ) x where at < ${at} and not (lat = 0 and lng = 0) order by at desc limit 1`;
+  if (!prev || (g.lat === 0 && g.lng === 0)) return null;
+  const km = distanceM({ lat: prev.lat, lng: prev.lng }, g) / 1000;
+  const hours = Math.max((at.getTime() - new Date(prev.at).getTime()) / 3_600_000, 1 / 60);
+  const kmh = km / hours;
+  return km > 2 && kmh > 150 ? `Moved ${km.toFixed(1)} km in ${Math.round(hours * 60)} min (${Math.round(kmh)} km/h) since this nurse's previous checkpoint` : null;
 }
 
 function checkGeo(h: any, g: { lat: number; lng: number; override_reason: string | null }) {
@@ -165,12 +181,15 @@ export function bleedRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
     const b = await loadBleed(sql, id);
     if (!visible(req, await deptCode(req), b)) fail(404, 'Bleed not found');
+    await auditView(sql, req.user.id, 'bleed', id, req.ip);
     const cfg = await bleedConfig(sql);
+    const code = await deptCode(req);
+    const wide = can(req.user.role, 'tickets.view_all') || code === 'NUR'; // PRE/ANA see only this bleed, not the request
     const [photos, siblings, timeline, people] = await Promise.all([
       sql`select id, kind, size, created_at from bleed_photos where bleed_id = ${id} order by created_at`,
-      sql`select id, number, patient_name, folder_no from bleeds where request_id = ${b.request_id} and id <> ${id} order by number`,
+      wide ? sql`select id, number, patient_name, folder_no from bleeds where request_id = ${b.request_id} and id <> ${id} order by number` : [],
       sql`select l.id, l.at, l.action, l.data, u.name as actor from audit_log l left join users u on u.id = l.actor_id
-          where (entity = 'bleed' and entity_id = ${id}) or (entity = 'bleed_request' and entity_id = ${b.request_id}) order by l.id`,
+          where (entity = 'bleed' and entity_id = ${id}) or (${wide} and entity = 'bleed_request' and entity_id = ${b.request_id}) order by l.id`,
       sql`select id, name from users where id = any(${[b.captured_by, b.received_by, b.lab_accepted_by, b.released_by, b.filed_by, b.closed_by].filter(Boolean)}::uuid[])`,
     ]);
     const who = Object.fromEntries(people.map((p) => [p.id, p.name]));
@@ -227,10 +246,12 @@ export function bleedRoutes(app: FastifyInstance) {
         const reasons = breachGate(b, 0, at, cfg, g.breach_reason);
         await tx`update bleeds set arrived_at = ${at}, breach_reasons = ${tx.json(reasons)}, offline_sync = offline_sync or ${late} where id = ${b.id}`;
       }
+      const suspect = await plausibility(tx, req.user.id, g, at);
       await tx`update bleed_requests set arrived_at = ${at}, arrived_by = ${req.user.id}, arrive_lat = ${g.lat}, arrive_lng = ${g.lng},
-        arrive_accuracy_m = ${g.accuracy}, arrive_distance_m = ${geo.distance}, arrive_override = ${geo.override} where id = ${id}`;
+        arrive_accuracy_m = ${g.accuracy}, arrive_distance_m = ${geo.distance}, arrive_override = ${geo.override}, arrive_suspect = ${suspect} where id = ${id}`;
+      if (suspect) await notify(tx, { roles: ['cs_supervisor'] }, { link: `/bleeds/${open[0]?.id}`, number: r.number, title: `Implausible location · arrival at ${r.name}`, body: suspect });
       await audit(tx, { actor: req.user.id, action: 'bleed.arrived', entity: 'bleed_request', id, ip: req.ip,
-        data: { distance_m: geo.distance && Math.round(geo.distance), accuracy_m: Math.round(g.accuracy), override: geo.override, late } });
+        data: { distance_m: geo.distance && Math.round(geo.distance), accuracy_m: Math.round(g.accuracy), override: geo.override, suspect, late } });
       if (geo.override)
         await notify(tx, { roles: ['cs_supervisor'] }, { link: `/bleeds/${open[0]?.id}`, number: r.number, title: `Geolocation exception · arrival at ${r.name}`, body: geo.override });
       return { ok: true };
@@ -274,7 +295,7 @@ export function bleedRoutes(app: FastifyInstance) {
       if (b.nurse_id !== req.user.id && req.user.role !== 'dept_manager') fail(403, 'This bleed is allocated to another nurse');
       if (b.captured_at || b.outcome) return { ok: true, already: true };
       if (!b.arrived_at) fail(409, 'Confirm arrival first');
-      if (b.cancelled_at) fail(409, 'Bleed was cancelled');
+      if (b.cancelled_at || b.closed_at) fail(409, 'Bleed was cancelled or closed');
       const cfg = await bleedConfig(tx);
       const { at, late } = stamp(f.device_time, b.arrived_at);
       const reasons = ok ? breachGate(b, 1, at, cfg, f.breach_reason) : b.breach_reasons;
@@ -339,10 +360,12 @@ export function bleedRoutes(app: FastifyInstance) {
         geo ??= checkGeo({ name: b.hospital, lat: b.hospital_lat, lng: b.hospital_lng, radius_m: b.radius_m }, g);
         const { at, late } = stamp(g.device_time, b.released_at);
         const reasons = breachGate(b, 5, at, cfg, g.breach_reason);
+        const suspect = await plausibility(tx, req.user.id, g, at);
+        if (suspect) await notify(tx, { roles: ['cs_supervisor'] }, { link: `/bleeds/${id}`, number: b.number, title: `Implausible location · report filing at ${b.hospital}`, body: suspect });
         await tx`update bleeds set filed_at = ${at}, filed_by = ${req.user.id}, file_lat = ${g.lat}, file_lng = ${g.lng}, file_accuracy_m = ${g.accuracy},
-          file_distance_m = ${geo.distance}, file_override = ${geo.override}, breach_reasons = ${tx.json(reasons)}, offline_sync = offline_sync or ${late} where id = ${id}`;
+          file_distance_m = ${geo.distance}, file_override = ${geo.override}, file_suspect = ${suspect}, breach_reasons = ${tx.json(reasons)}, offline_sync = offline_sync or ${late} where id = ${id}`;
         await audit(tx, { actor: req.user.id, action: 'bleed.filed', entity: 'bleed', id, ip: req.ip,
-          data: { distance_m: geo.distance && Math.round(geo.distance), override: geo.override, late } });
+          data: { distance_m: geo.distance && Math.round(geo.distance), override: geo.override, suspect, late } });
         if (geo.override)
           await notify(tx, { roles: ['cs_supervisor'] }, { link: `/bleeds/${id}`, number: b.number, title: `Geolocation exception · report filing at ${b.hospital}`, body: geo.override });
       }
