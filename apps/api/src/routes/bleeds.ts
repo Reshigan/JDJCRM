@@ -15,7 +15,7 @@ import { range } from '../analytics';
 
 const text = (max = 2000) => z.string().trim().min(1).max(max);
 const opt = (max = 200) => z.string().trim().max(max).optional().transform((v) => v || null);
-const Geo = { lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180), accuracy: z.number().min(0).max(100_000), override_reason: opt(1000), device_time: z.string().max(40).optional(), breach_reason: opt(1000) };
+const Geo = { mock: z.boolean().optional(), lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180), accuracy: z.number().min(0).max(100_000), override_reason: opt(1000), device_time: z.string().max(40).optional(), breach_reason: opt(1000) };
 
 export async function bleedConfig(db: Sql) {
   const rows = await db`select key, value from settings where key in ('bleed_limits', 'escalation_thresholds')`;
@@ -101,7 +101,9 @@ async function plausibility(db: Sql, userId: string, g: { lat: number; lng: numb
   return km > 2 && kmh > 150 ? `Moved ${km.toFixed(1)} km in ${Math.round(hours * 60)} min (${Math.round(kmh)} km/h) since this nurse's previous checkpoint` : null;
 }
 
-function checkGeo(h: any, g: { lat: number; lng: number; override_reason: string | null }) {
+function checkGeo(h: any, g: { lat: number; lng: number; override_reason: string | null; mock?: boolean }) {
+  // The Android app reports mock-location providers: no reason can override a spoofed position.
+  if (g.mock) fail(422, 'A mock-location app is active on this phone. Turn it off to confirm your location.');
   const distance = h.lat != null && h.lng != null ? distanceM({ lat: h.lat, lng: h.lng }, g) : null;
   const inside = distance != null && distance <= (h.radius_m ?? 250);
   if (!inside && !g.override_reason)

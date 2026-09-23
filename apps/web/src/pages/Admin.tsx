@@ -78,7 +78,7 @@ const SPECS: Spec[] = [
     { key: 'department_id', label: 'Department', type: 'select', options: depts, list: true },
     { key: 'priority', label: 'Priority', type: 'number', list: true },
   ] },
-  { res: 'settings', label: 'Settings', pk: 'key', intro: 'escalation_thresholds: % of time limit for amber, red and management escalation. mfa_enforced_roles: roles that must use two-factor sign-in. bleed_limits: minutes for the six bleed intervals [response, bleed, logistics, receiving, processing, reporting].', blank: {}, cols: [
+  { res: 'settings', label: 'Settings', pk: 'key', intro: 'escalation_thresholds: % of time limit for amber, red and management escalation. mfa_enforced_roles: roles that must use two-factor sign-in. bleed_limits: minutes for the six bleed intervals [response, bleed, logistics, receiving, processing, reporting]. retention_days: purge bleed photos / attachments this many days after closure, and old notifications (null = keep). report_*: scheduled e-mail distribution lists and send hour (SAST).', blank: {}, cols: [
     { key: 'key', label: 'Key', list: true, required: true, createOnly: true }, { key: 'value', label: 'Value (JSON)', type: 'json', list: true, required: true },
   ] },
 ];

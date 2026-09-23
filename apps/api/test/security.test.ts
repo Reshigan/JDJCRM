@@ -63,6 +63,14 @@ describe.skipIf(!url)('security regressions (API + DB)', async () => {
     expect((await req('pre', 'GET', `/api/bleeds/${r.bleed_ids[1]}`)).statusCode).toBe(404);
   });
 
+  it('a position reported as mock by the Android app is refused, even with a reason', async () => {
+    const [h] = await sql`select id, lat, lng from organisations where name = 'Demo General Hospital'`;
+    const r = (await req('cs', 'POST', '/api/bleed-requests', { hospital_id: h.id, requested_by: 'W', patients: [{ patient_name: 'M' }] })).json();
+    const res = await req('nurse', 'POST', `/api/bleed-requests/${r.id}/arrive`, { lat: h.lat, lng: h.lng, accuracy: 3, mock: true, override_reason: 'trust me' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toMatch(/mock-location/);
+  });
+
   it('a closed bleed cannot be captured afterwards', async () => {
     const [h] = await sql`select id, lat, lng from organisations where name = 'Demo General Hospital'`;
     const r = (await req('cs', 'POST', '/api/bleed-requests', { hospital_id: h.id, requested_by: 'W', patients: [{ patient_name: 'X' }] })).json();

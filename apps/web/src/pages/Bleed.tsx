@@ -123,16 +123,17 @@ export function Bleed() {
           <Card title="Geolocation evidence">
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                ['Arrival', b.arrived_at, b.arrive_distance_m, b.arrive_accuracy_m, b.arrive_override],
-                ['Report filed', b.filed_at, b.file_distance_m, b.file_accuracy_m, b.file_override],
-              ].map(([label, at, dist, acc, override]) => (
-                <div key={label} className={cx('rounded-lg border p-3 text-sm', override ? 'border-geo/40 bg-geo-soft/40' : 'border-line')}>
-                  <div className="flex items-center gap-1.5 font-medium">{override ? <MapPinOff size={15} className="text-geo" /> : <MapPin size={15} className="text-ok" />}{label}</div>
+                ['Arrival', b.arrived_at, b.arrive_distance_m, b.arrive_accuracy_m, b.arrive_override, b.arrive_suspect],
+                ['Report filed', b.filed_at, b.file_distance_m, b.file_accuracy_m, b.file_override, b.file_suspect],
+              ].map(([label, at, dist, acc, override, suspect]) => (
+                <div key={label} className={cx('rounded-lg border p-3 text-sm', override || suspect ? 'border-geo/40 bg-geo-soft/40' : 'border-line')}>
+                  <div className="flex items-center gap-1.5 font-medium">{override || suspect ? <MapPinOff size={15} className="text-geo" /> : <MapPin size={15} className="text-ok" />}{label}</div>
                   {at ? (
                     <div className="mt-1 text-muted">
                       <span className="num">{sast(at)}</span>
                       {dist != null && <> · {Math.round(dist)} m from {b.hospital} (fence {b.radius_m} m){acc != null && `, GPS ±${Math.round(acc)} m`}</>}
                       {override && <p className="mt-1 text-geo">Override: {override}</p>}
+                      {suspect && <p className="mt-1 font-medium text-geo">Implausible location: {suspect}</p>}
                     </div>
                   ) : <div className="mt-1 text-muted">Not yet</div>}
                 </div>

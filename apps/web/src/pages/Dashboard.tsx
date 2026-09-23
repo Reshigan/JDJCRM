@@ -1,7 +1,7 @@
 // Central dashboard (brief §7). Opens on the live operational view; Performance holds analytics.
 import { Link, NavLink, useNavigate, useParams, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Download, MapPinOff, Maximize2, OctagonAlert, WifiOff } from 'lucide-react';
+import { Download, Lightbulb, MapPinOff, Maximize2, OctagonAlert, CheckCircle2, TriangleAlert, WifiOff } from 'lucide-react';
 import { BLEED_STATES, can, formatMinutes, PRIORITIES, ROOT_CAUSES, SAST_OFFSET, type BleedState } from '@baton/core';
 import { api, useLookups, useMe } from '../api';
 import { BarList, ChartCard, Columns, DataTable, PctLine, Stat } from '../charts';
@@ -51,10 +51,31 @@ export const TILES: [string, string][] = [
   ['queries_logged', 'Queries logged'], ['queries_closed', 'Queries closed'], ['breaches', 'Breaches recorded'],
 ];
 
+function Insights() {
+  const { data } = useQuery({ queryKey: ['insights'], queryFn: () => api<any[]>('/insights'), refetchInterval: 300_000 });
+  if (!data?.length) return null;
+  return (
+    <section className="card p-4">
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Lightbulb size={16} className="text-brand" />Insights <span className="font-normal text-muted">· compared with each measure's own recent history</span></h2>
+      <ul className="grid gap-2 lg:grid-cols-2">
+        {data.map((i, k) => (
+          <li key={k}>
+            <Link to={i.link ?? '#'} className="flex gap-2.5 rounded-lg p-2 hover:bg-surface-2">
+              {i.tone === 'warn' ? <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" /> : <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-ok" />}
+              <span><span className="block text-sm font-medium">{i.title}</span><span className="block text-xs text-muted">{i.detail}</span></span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function Live() {
   const { live, active, open, updated } = useLive();
   return (
     <div className="space-y-5">
+      <Insights />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {TILES.map(([k, l]) => <Stat key={k} label={l} value={live?.tiles[k] ?? '–'} tone={k === 'breaches' && live?.tiles[k] ? 'bad' : undefined} sub={k === 'breaches' ? 'stages red today' : 'today'} />)}
       </div>

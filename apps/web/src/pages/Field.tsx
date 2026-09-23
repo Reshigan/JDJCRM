@@ -8,12 +8,23 @@ import { api, useMe } from '../api';
 import { compress, kvGet, kvSet, send, useOutbox, wipe } from '../offline';
 import { BatonBar, BatonMark, Button, cx, ErrorText, Field, FlagPill, Input, Select, Textarea } from '../ui';
 
-type Pos = { lat: number; lng: number; accuracy: number };
+type Pos = { lat: number; lng: number; accuracy: number; mock?: boolean };
+
+/** In the Android app (Capacitor shell) positions come from the native plugin, which also reports mock-location apps. */
+const native = () => (window as any).Capacitor?.isNativePlatform?.() && (window as any).Capacitor?.Plugins?.MockLocation;
 
 function useGeo() {
   const [pos, setPos] = useState<Pos | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    const plugin = native();
+    if (plugin) {
+      let live = true;
+      const poll = () => plugin.getPosition().then((p: Pos) => { if (live) { setPos(p); setError(null); } }, (e: any) => live && setError(e?.message ?? 'Waiting for a GPS fix…'));
+      poll();
+      const t = setInterval(poll, 4000);
+      return () => { live = false; clearInterval(t); };
+    }
     if (!('geolocation' in navigator)) return setError('This device has no location service');
     const id = navigator.geolocation.watchPosition(
       (p) => { setPos({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }); setError(null); },
@@ -140,8 +151,8 @@ function GeoGate({ hospital, lat, lng, radius, label, busy, onConfirm, breachNee
   const [reason, setReason] = useState('');
   const [breach, setBreach] = useState('');
   const d = pos && lat != null && lng != null ? distanceM({ lat, lng }, pos) : null;
-  const inside = d != null && d <= radius;
-  const ready = (!breachNeeded || breach.trim()) && (inside || (override && reason.trim()));
+  const inside = d != null && d <= radius && !pos?.mock;
+  const ready = !pos?.mock && (!breachNeeded || breach.trim()) && (inside || (override && reason.trim()));
   return (
     <div className="card space-y-4 p-4">
       <div className={cx('flex items-center gap-3 rounded-lg p-3', inside ? 'bg-ok-soft text-ok' : 'bg-surface-2 text-muted')}>
@@ -151,6 +162,7 @@ function GeoGate({ hospital, lat, lng, radius, label, busy, onConfirm, breachNee
           {pos && <div className="num text-xs opacity-80">GPS ±{Math.round(pos.accuracy)} m</div>}
         </div>
       </div>
+      {pos?.mock && <p className="rounded-lg bg-bad-soft p-3 text-sm font-medium text-bad">A fake-GPS (mock location) app is active on this phone. Turn it off in Developer options to confirm your location.</p>}
       {breachNeeded && (
         <Field label="Breach reason" required hint="This stage has passed its time limit."><Input value={breach} onChange={(e) => setBreach(e.target.value)} /></Field>
       )}
@@ -283,7 +295,7 @@ export function FieldRequest() {
     } catch (e) { setError(e); setBusy(false); }
   };
   const geo = (p: { pos: Pos | null; override_reason?: string; breach_reason?: string }) => ({
-    lat: p.pos?.lat ?? 0, lng: p.pos?.lng ?? 0, accuracy: p.pos?.accuracy ?? 100_000, override_reason: p.override_reason, breach_reason: p.breach_reason,
+    lat: p.pos?.lat ?? 0, lng: p.pos?.lng ?? 0, accuracy: p.pos?.accuracy ?? 100_000, mock: p.pos?.mock, override_reason: p.override_reason, breach_reason: p.breach_reason,
   });
   const cap = r.bleeds.find((b: any) => b.id === capturing);
   const reporting = r.bleeds.filter((b: any) => b.state === 'reporting');

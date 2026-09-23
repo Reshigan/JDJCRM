@@ -12,7 +12,7 @@ Every query and every bleed gets a ticket number, a named owner at each stage an
 | Module A: query and ticket management | ✅ Phase 1 |
 | Module B: hospital bleed tickets, field PWA (geofence, encrypted photos, offline), sample desk | ✅ Phase 2 |
 | Central dashboard: live boards, analytics, Excel export, scheduled e-mails, Wall mode, global search | ✅ Phase 3 |
-| Insights, retention jobs, Android wrap with mock-location detection | Phase 4 |
+| Hardening: security review fixes, insights, GPS plausibility, read audit, POPIA export, retention, key rotation, Android app with mock-location detection | ✅ Phase 4 |
 
 | Ticket: department clocks, closure gate, audited timeline | Intake: live routing preview and repeat-complainant warning |
 |---|---|
@@ -180,6 +180,30 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
 - **Transport and headers.** HTTPS with HSTS, a strict CSP (no inline scripts), `X-Frame-Options DENY`, and a camera/geolocation permissions policy.
 - **Configuration without developers.** Users, AD groups, categories and routing, time limits, sites and hours, holidays, practices and hospitals (with geofence), escalation thresholds and MFA policy can all be changed in **Administration** with no release.
 
+### Hardening (Phase 4)
+
+- **Independent security review; all findings fixed, each with a regression test (`apps/api/test/security.test.ts`).**
+  - Access decisions use the *matched route*, never the raw URL. Percent-encoded paths such as `/api/%61dmin` could previously reach admin routes.
+  - AD sign-ins respect account lockout, and failed sign-ins are throttled per IP.
+  - Admin and management can never hold department-scoped access; a database constraint enforces it.
+  - Pre-Analytical and the lab see only the bleed they hold.
+  - No patient details in request logs or e-mails, and STARTTLS to the mail relay.
+- **Insights** at the top of the live dashboard, and in the daily e-mail. They are deterministic: each measure is compared with its own recent history. Examples:
+  - a bleed stage drifting from its 4-week median
+  - a department's first response slowing
+  - the worst hospital this week
+  - nurses with frequent geolocation exceptions
+  - the same complainant raising the same category three or more times in 30 days
+- **Proof of presence.** A checkpoint the same nurse could not physically have reached (over 150 km/h since their last one) is flagged as an implausible location, and supervisors are alerted.
+  - **Baton Field for Android** (`apps/android`, Capacitor) wraps the same PWA and reads GPS natively. The server refuses a position Android marks as coming from a **mock-location app**, and no reason can override it.
+  - The APK is built by `.github/workflows/android.yml`. Set the server URL when running the workflow.
+- **POPIA.**
+  - Read audit of every ticket and bleed opened.
+  - A **POPIA access report** from Search (supervisor, management): every record about a person and everyone who viewed it.
+  - Retention purges (`retention_days`).
+- **Operations** ([docs/RUNBOOK.md](docs/RUNBOOK.md)): backup, restore with audit-chain verification, master-key rotation (re-wraps file keys without rewriting files), upgrades, air-gapped install, incidents.
+  - Restore and rotation were both drilled during development: identical row counts, chain intact, and every photo decrypts with the new key and none with the old.
+
 ## Open items to confirm with JDJ
 
 1. The final time limits per category and priority (the brief says TBC; defaults are seeded and editable).
@@ -188,3 +212,5 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
 4. LIS integration for requisition validation and "results released" (currently a manual release button on the sample desk).
 5. Photo legibility is checked by the nurse's preview-and-retake; there is no automatic scoring.
 6. Push notifications are off by decision (e-mail + in-app only). Nurses are alerted immediately only while the field app is open.
+7. Retention periods for bleed photos and attachments (off by default). Set them to match JDJ's records policy.
+8. Department managers currently get a dashboard for their own department; brief rule 2 could be read as excluding them.

@@ -1,17 +1,27 @@
 import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { BLEED_STATES, bleedState, patientRef, sast, type QueryState } from '@baton/core';
-import { api } from '../api';
-import { Badge, Card, Empty, StatePill } from '../ui';
+import { ShieldCheck } from 'lucide-react';
+import { api, useMe } from '../api';
+import { Badge, Button, Card, Empty, StatePill } from '../ui';
 
 /** Full search across queries and bleeds (brief §7). Results respect the caller's scope. */
 export function Search() {
   const [p] = useSearchParams();
   const q = p.get('q') ?? '';
+  const { data: me } = useMe();
+  const popia = me && ['cs_supervisor', 'management'].includes(me.role) && q.trim().length >= 3;
   const { data, isLoading } = useQuery({ queryKey: ['search', q], queryFn: () => api(`/search?q=${encodeURIComponent(q)}`), enabled: q.trim().length >= 2 });
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold tracking-tight">Search <span className="text-muted">“{q}”</span></h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Search <span className="text-muted">“{q}”</span></h1>
+        {popia && (
+          <a href={`/api/popia/subject?q=${encodeURIComponent(q)}`} title="Every record held about this person and everyone who viewed it — for a POPIA access request. The export is audited.">
+            <Button variant="outline" size="sm"><ShieldCheck size={15} />POPIA access report</Button>
+          </a>
+        )}
+      </div>
       {q.trim().length < 2 && <p className="text-sm text-muted">Type at least two characters: a ticket number, patient, requisition, hospital or complainant.</p>}
       {isLoading && <div className="h-32 animate-pulse rounded-xl bg-surface-2" />}
       {data && (
