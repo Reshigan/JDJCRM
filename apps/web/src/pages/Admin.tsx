@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
+import { Activity, CircleCheck, CircleX, Pencil, Plus, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
 import { formatMinutes, ROLES, sast } from '@baton/core';
 import { api, useLookups, type Lookups } from '../api';
 import { Badge, Button, Card, cx, ErrorText, Field, Input, Modal, Select, Textarea } from '../ui';
@@ -209,6 +209,37 @@ function Resource({ spec, lk }: { spec: Spec; lk: Lookups }) {
   );
 }
 
+const bytes = (n: number) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`);
+const Row = ({ ok, label, value }: { ok: boolean | null; label: string; value: ReactNode }) => (
+  <div className="flex items-start gap-3 border-b border-line py-3 last:border-0">
+    {ok == null ? <Activity size={18} className="mt-0.5 text-muted" /> : ok ? <CircleCheck size={18} className="mt-0.5 text-ok" /> : <CircleX size={18} className="mt-0.5 text-bad" />}
+    <div className="flex-1 text-sm"><div className="font-medium">{label}</div><div className="text-muted">{value}</div></div>
+  </div>
+);
+
+function SystemStatus() {
+  const { data: s } = useQuery({ queryKey: ['system-status'], queryFn: () => api('/system/status'), refetchInterval: 30_000 });
+  if (!s) return <div className="h-40 animate-pulse rounded-xl bg-surface-2" />;
+  const backupAge = s.last_backup ? (Date.now() - +new Date(s.last_backup)) / 3_600_000 : null;
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <Card title="Health">
+        <Row ok={s.worker.healthy} label="Background worker" value={s.worker.at ? <>Last heartbeat {Math.round(s.worker.age_minutes)} min ago on {s.worker.host}{s.worker.error && <span className="text-bad"> · last error: {s.worker.error}</span>}</> : 'Never reported — escalations, reports and retention are not running'} />
+        <Row ok={backupAge != null && backupAge < 26} label="Nightly backup" value={s.last_backup ? `Last completed ${sast(s.last_backup)} (${Math.round(backupAge!)} h ago)` : 'No backup recorded yet'} />
+        <Row ok={s.database.audit_intact} label="Audit trail" value={s.database.audit_intact ? `${s.database.audit_entries.toLocaleString()} entries, hash chain verified` : `Chain broken at entry #${s.database.audit_broken_at}`} />
+        <Row ok={s.files.disk ? s.files.disk.free / s.files.disk.total > 0.1 : null} label="Disk (attachment store)" value={s.files.disk ? `${bytes(s.files.disk.free)} free of ${bytes(s.files.disk.total)} · ${s.files.files.toLocaleString()} encrypted files, ${bytes(s.files.bytes)}` : 'Unknown'} />
+        <Row ok={null} label="Scheduled reports" value={`Daily last sent ${s.reports.daily ?? '—'} · monthly ${s.reports.monthly ?? '—'}`} />
+      </Card>
+      <Card title="System">
+        <Row ok={null} label="Database" value={`${bytes(s.database.bytes)} · ${s.database.tickets.toLocaleString()} queries · ${s.database.bleeds.toLocaleString()} bleeds · ${s.database.users} active users · ${s.database.sessions} sessions`} />
+        <Row ok={null} label="API instance" value={`${s.api.host} · up ${Math.round(s.api.uptime_s / 3600)} h · Node ${s.api.node}`} />
+        <Row ok={null} label="Schema migrations" value={s.migrations.map((m: any) => m.name.replace('.sql', '')).join(', ')} />
+        <Row ok={null} label="PostgreSQL" value={String(s.database.version).split(' on ')[0]} />
+      </Card>
+    </div>
+  );
+}
+
 function Audit() {
   const { data } = useQuery({ queryKey: ['admin-audit'], queryFn: () => api('/admin-audit') });
   return (
@@ -252,11 +283,11 @@ export function Admin() {
         <p className="mt-0.5 text-sm text-muted">Users, routing, time limits and hospitals: all changes apply immediately and are audited.</p>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-b border-line">
-        {[...SPECS.map((s) => [s.res, s.label]), ['audit', 'Audit trail']].map(([k, l]) => (
+        {[['status', 'System status'], ...SPECS.map((s) => [s.res, s.label]), ['audit', 'Audit trail']].map(([k, l]) => (
           <NavLink key={k} to={`/admin/${k}`} className={cx('border-b-2 px-3 py-2 text-sm whitespace-nowrap', tab === k ? 'border-brand font-medium text-brand' : 'border-transparent text-muted hover:text-text')}>{l}</NavLink>
         ))}
       </nav>
-      {tab === 'audit' ? <Audit /> : spec && lk ? <Resource key={spec.res} spec={spec} lk={lk} /> : null}
+      {tab === 'audit' ? <Audit /> : tab === 'status' ? <SystemStatus /> : spec && lk ? <Resource key={spec.res} spec={spec} lk={lk} /> : null}
     </div>
   );
 }

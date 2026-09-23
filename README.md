@@ -13,6 +13,7 @@ Every query and every bleed gets a ticket number, a named owner at each stage an
 | Module B: hospital bleed tickets, field PWA (geofence, encrypted photos, offline), sample desk | ✅ Phase 2 |
 | Central dashboard: live boards, analytics, Excel export, scheduled e-mails, Wall mode, global search | ✅ Phase 3 |
 | Hardening: security review fixes, insights, GPS plausibility, read audit, POPIA export, retention, key rotation, Android app with mock-location detection | ✅ Phase 4 |
+| Enhancements: live push, dispatch assist + nurse runs, photo sharpness + barcode reading, LIS integration, worker watchdog + System status, browser E2E + Docker deployment CI | ✅ |
 
 | Ticket: department clocks, closure gate, audited timeline | Intake: live routing preview and repeat-complainant warning |
 |---|---|
@@ -123,6 +124,7 @@ npm run seed -w @baton/api -- --demo   # reference data + demo users, queries an
 npm run dev:api
 npm run dev:web                        # http://localhost:5173
 TEST_DATABASE_URL=postgres://baton@127.0.0.1:5433/baton_test npm test
+npm run e2e                            # browser journeys against the running dev servers
 ```
 
 Demo accounts (password `Baton!demo2026`; two-factor is relaxed in demo seed only):
@@ -203,6 +205,30 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
   - Retention purges (`retention_days`).
 - **Operations** ([docs/RUNBOOK.md](docs/RUNBOOK.md)): backup, restore with audit-chain verification, master-key rotation (re-wraps file keys without rewriting files), upgrades, air-gapped install, incidents.
   - Restore and rotation were both drilled during development: identical row counts, chain intact, and every photo decrypts with the new key and none with the old.
+
+### Enhancements
+
+- **Live push.** Boards, the wall screen, the nurse's run and the notification bell update the moment anything changes.
+  - How it works: Postgres `LISTEN/NOTIFY` feeds a Server-Sent Events stream at `/api/stream`.
+  - Events carry only an entity and an id, and clients refetch through their normal access-checked APIs. The stream therefore discloses nothing a user couldn't already load.
+  - Polling remains as a 60-second fallback.
+- **Dispatch assist.** When logging a bleed, nurses are ranked with the reasons shown ("Allocated to …", "Last at … · 3 km away", "2 open requests"). The default choice is the suggested nurse.
+  - Ranking uses current workload, then distance from the hospital of each nurse's last checkpoint (today only; never coordinates).
+  - **Nurse runs** (`/nurses`) shows every nurse's open stops in order, and any unallocated requests.
+- **Capture quality.**
+  - The phone measures each photo's sharpness (variance of the Laplacian). It asks for a retake when a photo is likely unreadable, and stores the score so reviewers see "may be blurry".
+  - Where the browser supports it (Chrome, Android), the requisition number is read from the barcode in the photo.
+- **LIS integration** ([docs/LIS.md](docs/LIS.md)).
+  - A signed, timestamped, idempotent webhook records *sample received*, *lab accepted* and *results released* when they happen in the LIS.
+  - A late stage without a reason is still recorded, marked pending, and the owning department is asked for the reason.
+  - Requisition numbers are checked against the LIS at intake and at capture. Only found / not found and patient match / no match are disclosed.
+- **Operations.**
+  - The worker writes a heartbeat every minute. If it stops, every API instance notices, and admins and supervisors are alerted (at most hourly).
+  - **Administration → System status** shows worker health, last backup, the audit chain, disk space, file store, sessions and migrations.
+- **Tests.**
+  - 52 API/DB integration tests.
+  - 7 browser journeys (`apps/e2e`, Playwright). They cover the full query lifecycle, the full bleed lifecycle with the capture done **with the network off** and synced afterwards, the geofence override, live push, dashboard/export/wall, role boundaries and system status.
+  - CI runs them against the dev servers **and** against the real Docker stack behind Caddy/HTTPS, including a backup/restore drill.
 
 ## Open items to confirm with JDJ
 

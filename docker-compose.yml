@@ -12,6 +12,7 @@ x-api-env: &api-env
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASS: ${SMTP_PASS:-}
   SMTP_FROM: ${SMTP_FROM:-Baton <baton@jdj.local>}
+  SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
   LDAP_URL: ${LDAP_URL:-}
   LDAP_BASE_DN: ${LDAP_BASE_DN:-}
   LDAP_UPN_SUFFIX: ${LDAP_UPN_SUFFIX:-}

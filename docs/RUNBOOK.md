@@ -34,6 +34,7 @@ Everything here runs on the Docker host, from the repository directory. Times ar
 
 | Check | How |
 |---|---|
+| System status | **Administration → System status**: every row green |
 | Services healthy | `docker compose ps` shows every container `healthy` / `running` |
 | Last night's backup exists | `docker compose logs --since 26h backup` shows `backup <date> ok` |
 | Audit trail intact | Administration → Audit trail shows "Hash chain verified" |
@@ -89,6 +90,7 @@ Migrations run automatically when the API starts, and each runs in a transaction
 
 | Symptom | Action |
 |---|---|
+| Alert "Baton worker has stopped" | Escalations, reports and retention are paused. Run `docker compose ps worker` and `docker compose logs --tail 100 worker`, then `docker compose up -d worker`. The alert repeats at most hourly until the worker's heartbeat is back. |
 | A user is locked out | Administration → Users → edit → **Unlock account**. It unlocks by itself after 15 minutes. |
 | A user lost their phone (2FA) | Administration → Users → edit → **Reset two-factor**. Their sessions end, and they enrol again at their next sign-in. |
 | "Chain broken at entry #N" on the audit page | Someone altered the database directly. Preserve the host, restore the last good backup elsewhere and compare entries around #N, then report under your POPIA breach procedure. |
