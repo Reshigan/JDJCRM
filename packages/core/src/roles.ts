@@ -24,6 +24,8 @@ export const PERMISSIONS = {
   'dashboard.view': ['cs_agent', 'cs_supervisor', 'management'],
   'dashboard.export': ['cs_supervisor', 'management'],
   'admin.configure': ['admin'],
+  'bleed.open': CS, // same rule as queries: only Client Services opens, cancels or closes a bleed
+  'bleed.close': CS,
 } as const satisfies Record<string, readonly Role[]>;
 export type Permission = keyof typeof PERMISSIONS;
 

@@ -11,7 +11,7 @@ const R: Record<string, Res> = {
   departments: { cols: ['code', 'name', 'active'], order: 'name' },
   sites: { cols: ['code', 'name', 'region', 'hours', 'active'], json: ['hours'], order: 'name' },
   holidays: { pk: 'day', cols: ['day', 'name'], del: true, order: 'day' },
-  organisations: { cols: ['kind', 'name', 'address', 'phone', 'email', 'lat', 'lng', 'radius_m', 'site_id', 'active'], order: 'name' },
+  organisations: { cols: ['kind', 'name', 'address', 'phone', 'email', 'lat', 'lng', 'radius_m', 'site_id', 'nurse_id', 'active'], order: 'name' },
   categories: { cols: ['name', 'department_ids', 'clock', 'limit_critical', 'limit_high', 'limit_normal', 'active'], order: 'name' },
   ad_groups: { cols: ['group_dn', 'role', 'department_id', 'priority'], del: true, order: 'priority' },
   settings: { pk: 'key', cols: ['key', 'value'], json: ['value'], order: 'key' },

@@ -83,6 +83,10 @@ async function seedDemo(dept: Record<string, number>, tickets: boolean) {
   for (const [email, name, role, d] of users)
     await sql`insert into users (email, name, role, department_id, password_hash)
       values (${email}, ${name}, ${role}, ${d ? dept[d] : null}, ${pw}) on conflict (email) do nothing`;
+  await sql`insert into users (email, name, role, department_id, password_hash)
+    values ('nurse2@baton.local', 'Sister Zanele Nkosi', 'dept_responder', ${dept.NUR}, ${pw}) on conflict (email) do nothing`;
+  await sql`update organisations set nurse_id = (select id from users where email = 'nursing@baton.local') where kind = 'hospital' and nurse_id is null and name <> 'Demo Coastal Hospital'`;
+  await sql`update organisations set nurse_id = (select id from users where email = 'nurse2@baton.local') where name = 'Demo Coastal Hospital' and nurse_id is null`;
   console.log('demo users ready — password: Baton!demo2026');
   if (tickets) await demoTickets();
 }

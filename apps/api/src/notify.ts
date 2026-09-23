@@ -19,7 +19,7 @@ export async function sendMail(to: string[], subject: string, text: string) {
 type Audience = { users?: string[]; departments?: number[]; roles?: string[]; deptRoles?: string[] };
 
 /** Resolve recipients, write in-app notifications, then e-mail outside the transaction. */
-export async function notify(db: Sql, to: Audience, n: { ticketId?: string; number?: string; title: string; body?: string }) {
+export async function notify(db: Sql, to: Audience, n: { ticketId?: string; link?: string; number?: string; title: string; body?: string }) {
   const rows = await db`
     select id, email from users where active and (
       id = any(${to.users ?? []}::uuid[])
@@ -27,9 +27,10 @@ export async function notify(db: Sql, to: Audience, n: { ticketId?: string; numb
       or (department_id = any(${to.departments ?? []}::int[]) and role = any(${to.deptRoles ?? ['dept_responder', 'dept_manager', 'cs_agent', 'cs_supervisor']}))
     )`;
   if (!rows.length) return;
-  await db`insert into notifications ${db(rows.map((r) => ({ user_id: r.id, ticket_id: n.ticketId ?? null, title: n.title, body: n.body ?? null })))}`;
+  await db`insert into notifications ${db(rows.map((r) => ({ user_id: r.id, ticket_id: n.ticketId ?? null, link: n.link ?? null, title: n.title, body: n.body ?? null })))}`;
   const subject = n.number ? `${n.number} · ${n.title}` : n.title;
-  const link = n.ticketId ? `\n\nOpen: ${env.appUrl}/tickets/${n.ticketId}` : '';
+  const path = n.link ?? (n.ticketId ? `/tickets/${n.ticketId}` : null);
+  const link = path ? `\n\nOpen: ${env.appUrl}${path}` : '';
   setImmediate(() => sendMail(rows.map((r) => r.email), subject, `${n.body ?? n.title}${link}`));
 }
 

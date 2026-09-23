@@ -14,15 +14,16 @@ export function miscRoutes(app: FastifyInstance) {
       sql`select id, code, name from departments where active order by name`,
       sql`select id, code, name, region from sites where active order by name`,
       sql`select id, name, department_ids, clock, limit_critical, limit_high, limit_normal from categories where active order by name`,
-      sql`select id, kind, name, site_id from organisations where active order by name`,
+      sql`select id, kind, name, site_id, nurse_id from organisations where active order by name`,
       sql`select id, name, role, department_id from users where active and department_id is not null order by name`,
       sql`select value from settings where key = 'escalation_thresholds'`,
     ]);
-    return { departments, sites, categories, organisations, users, thresholds: th?.value };
+    const [bl] = await sql`select value from settings where key = 'bleed_limits'`;
+    return { departments, sites, categories, organisations, users, thresholds: th?.value, bleed_limits: bl?.value };
   });
 
   app.get('/api/notifications', async (req) => {
-    const rows = await sql`select n.id, n.ticket_id, n.title, n.body, n.read_at, n.created_at, t.number
+    const rows = await sql`select n.id, n.ticket_id, n.link, n.title, n.body, n.read_at, n.created_at, t.number
       from notifications n left join tickets t on t.id = n.ticket_id
       where user_id = ${req.user.id} order by n.id desc limit 50`;
     const [{ unread }] = await sql`select count(*)::int as unread from notifications where user_id = ${req.user.id} and read_at is null`;

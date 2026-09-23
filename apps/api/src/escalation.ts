@@ -1,8 +1,9 @@
 // Brief §5.5: time-based automatic escalation at configurable % of the limit.
-import { formatMinutes } from '@baton/core';
 import { audit, sql } from './db';
 import { notify } from './notify';
 import { slaContext } from './sla';
+import { bleedIntervals, formatMinutes, INTERVALS } from '@baton/core';
+import { bleedConfig } from './routes/bleeds';
 
 const LEVELS = ['', 'Amber — 80% of time limit', 'Red — time limit breached', 'Escalated — 150% of time limit'];
 
@@ -32,6 +33,41 @@ export async function escalationTick(now = new Date()) {
         deptRoles: managersOnly ? ['dept_manager'] : undefined,
         roles: [...(m.level >= 2 ? ['cs_supervisor'] : []), ...(m.level >= 3 ? ['management'] : [])],
       }, n);
+      raised++;
+    });
+  }
+  return raised;
+}
+
+/** Brief §6.5: amber → stage owner (early warning); red → Client Services + the owning department's manager. */
+export async function bleedEscalationTick(now = new Date()) {
+  const cfg = await bleedConfig(sql);
+  const open = await sql`
+    select b.*, r.nurse_id, r.number as request_number, h.name as hospital from bleeds b
+    join bleed_requests r on r.id = b.request_id join organisations h on h.id = r.hospital_id
+    where b.closed_at is null and b.cancelled_at is null and b.filed_at is null and coalesce(b.outcome, 'successful') = 'successful'`;
+  const depts = Object.fromEntries((await sql`select code, id from departments`).map((d) => [d.code, d.id as number]));
+  let raised = 0;
+  for (const b of open) {
+    const cur = bleedIntervals(b, cfg.limits, now, cfg.th).current;
+    if (!cur) continue;
+    const level = Math.min(2, cur.pct >= cfg.th[1] ? 2 : cur.pct >= cfg.th[0] ? 1 : 0);
+    if (level <= (b.escalations?.[cur.index] ?? 0)) continue;
+    await sql.begin(async (tx) => {
+      const [ok] = await tx`update bleeds set escalations = escalations || ${tx.json({ [cur.index]: level })}
+        where id = ${b.id} and coalesce((escalations ->> ${String(cur.index)})::int, 0) < ${level} returning id`;
+      if (!ok) return;
+      await audit(tx, { actor: null, action: 'bleed.escalated', entity: 'bleed', id: b.id, data: { interval: cur.label, level, pct: Math.round(cur.pct) } });
+      const dept = depts[INTERVALS[cur.index].dept];
+      const nurse = ['response', 'bleed', 'logistics', 'reporting'].includes(cur.key) && b.nurse_id ? [b.nurse_id] : [];
+      const n = {
+        link: level === 1 && nurse.length ? `/field/r/${b.request_id}` : `/bleeds/${b.id}`,
+        number: b.number,
+        title: `${level === 2 ? 'Red' : 'Amber'} · ${cur.label} · ${b.hospital}`,
+        body: `${cur.label}: ${formatMinutes(cur.used)} of ${formatMinutes(cur.limit)}.`,
+      };
+      if (level === 1) await notify(tx, { users: nurse, departments: nurse.length ? [] : [dept], deptRoles: ['dept_responder', 'dept_manager'] }, n);
+      else await notify(tx, { users: nurse, departments: [dept], deptRoles: ['dept_manager'], roles: ['cs_agent', 'cs_supervisor'] }, n);
       raised++;
     });
   }

@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { authPlugin } from './auth';
 import { HttpError } from './db';
 import { adminRoutes } from './routes/admin';
+import { bleedRoutes } from './routes/bleeds';
 import { miscRoutes } from './routes/misc';
 import { ticketRoutes } from './routes/tickets';
 
@@ -31,5 +32,6 @@ export async function buildApp() {
   miscRoutes(app);
   ticketRoutes(app);
   adminRoutes(app);
+  bleedRoutes(app);
   return app;
 }
