@@ -51,4 +51,50 @@ Set `LIS_VALIDATE_URL`, e.g. `https://lis.jdj.local/api/requisitions/{requisitio
 
 Only found / not found and match / no match are passed back to the browser. The LIS's patient details are never shown. The check runs on the query intake form and on the nurse's bleed capture.
 
-If your LIS speaks HL7 v2 over MLLP rather than HTTP, put a small interface engine (e.g. Mirth / NextGen Connect) in front. It maps ORU/OML messages to the events above.
+## SkyLIMS (Mukon Informatics): HL7 v2 over MLLP
+
+JDJ's LIS is SkyLIMS. Baton has a built-in HL7 v2 listener for it, so no interface engine is needed. Mukon's interface specification was not available when this was built. The message mapping below is therefore a **starting point to confirm with Mukon**, and it can be changed in Administration with no release.
+
+**Enable it.**
+
+1. In `.env`, set `COMPOSE_PROFILES=skylims` and `SKYLIMS_ALLOW=<SkyLIMS interface server IP>`.
+2. Run `docker compose up -d`.
+3. The `lis` container listens on TCP **2575**. For TLS, mount a certificate and set `SKYLIMS_TLS_CERT` and `SKYLIMS_TLS_KEY`.
+4. Ask Mukon to send order-status and result messages for JDJ's orders to `<baton-host>:2575`, using standard MLLP framing.
+5. Test the link with `node scripts/hl7-ping.mjs <baton-host>`, which should print `MSA|AA`.
+
+**What Baton does with each message.**
+
+- Every message gets an ACK:
+  - `AA`: accepted. This includes messages that aren't hospital bleeds, so SkyLIMS never resends them in a loop.
+  - `AE`: the message maps to a lab stage but has no requisition number.
+  - `AR`: the message could not be parsed.
+- The message control ID (MSH-10) is the event ID. A resent message is recorded only once.
+- The requisition number finds the active bleed. The stage is then recorded exactly as for the webhook above: order checks, "Pending" breach reasons, and the audit trail with source **SkyLIMS**.
+- **POPIA.** The message itself is discarded. Result messages carry results and patient details, and Baton keeps neither. It keeps only the event, the time, the requisition number and the outcome.
+- **Administration → System status** shows the last message received, its outcome, and the error count.
+
+**Mapping** (Admin → Settings → `skylims_mapping`). A path is `SEGMENT-field[.component]`; the component defaults to 1. A rule applies when **every** listed field matches its regular expression in **every** occurrence of its segment. So "results released" needs all OBR segments to be final, and partial results are ignored.
+
+```json
+{
+  "requisition": ["ORC-2", "OBR-2", "ORC-3", "OBR-3"],
+  "events": [
+    { "event": "sample_received",  "match": { "MSH-9": "^(ORM|OML|OUL|SSU)$", "ORC-5": "^SC$" }, "time": ["OBR-14", "MSH-7"] },
+    { "event": "lab_accepted",     "match": { "MSH-9": "^(ORM|OML|OUL|SSU)$", "ORC-5": "^IP$" }, "time": ["MSH-7"] },
+    { "event": "results_released", "match": { "MSH-9": "^ORU$", "OBR-25": "^F$" },                "time": ["OBR-22", "MSH-7"] }
+  ]
+}
+```
+
+- `requisition`: the fields to try, in order. The first non-empty one is the requisition number. The default tries the placer number first, then the filler number.
+- `time`: when the stage happened. HL7 times without a time zone are read as SAST.
+
+**To confirm with Mukon.**
+
+1. Which message and status code mark each of the three stages?
+2. Which field carries JDJ's requisition number?
+3. Is **SkyLog** in use? If it is, "sample received" should come from SkyLIMS/SkyLog. The Pre-Analytical sample desk then only confirms it, so two systems don't record the same moment.
+4. Is there a requisition lookup that Baton can call at intake? If so, set `LIS_VALIDATE_URL` above.
+
+An HL7 interface engine (e.g. Mirth / NextGen Connect) can still sit in front and post to the webhook instead, if JDJ prefers one.

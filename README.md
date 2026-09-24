@@ -218,7 +218,7 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
 - **Capture quality.**
   - The phone measures each photo's sharpness (variance of the Laplacian). It asks for a retake when a photo is likely unreadable, and stores the score so reviewers see "may be blurry".
   - Where the browser supports it (Chrome, Android), the requisition number is read from the barcode in the photo.
-- **LIS integration** ([docs/LIS.md](docs/LIS.md)).
+- **LIS integration** ([docs/LIS.md](docs/LIS.md)). This includes a built-in **SkyLIMS HL7 v2 (MLLP) listener**. It records received, accepted and released automatically, answers every message with an ACK, and keeps no results or patient details from the messages.
   - A signed, timestamped, idempotent webhook records *sample received*, *lab accepted* and *results released* when they happen in the LIS.
   - A late stage without a reason is still recorded, marked pending, and the owning department is asked for the reason.
   - Requisition numbers are checked against the LIS at intake and at capture. Only found / not found and patient match / no match are disclosed.
@@ -257,7 +257,7 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
   | Excel export, 30 days | 1.5 s |
 
 - **Tests.**
-  - 59 API/DB integration tests.
+  - 64 API/DB integration tests, including the SkyLIMS feed over a real MLLP socket.
   - 10 browser journeys (`apps/e2e`, Playwright). They cover:
     - the full query lifecycle, including the effectiveness check;
     - the full bleed lifecycle, with the capture done **with the network off** and synced afterwards;
@@ -266,14 +266,14 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
     - dashboard, export and wall mode;
     - role boundaries and system status;
     - register merge, mentions, canned responses, saved views and bulk close.
-  - CI runs them against the dev servers **and** against the real Docker stack behind Caddy/HTTPS, including a backup/restore drill, plus the load test.
+  - CI runs them against the dev servers **and** against the real Docker stack behind Caddy/HTTPS, including a backup/restore drill, a SkyLIMS listener ACK check on the real container, plus the load test.
 
 ## Open items to confirm with JDJ
 
 1. The final time limits per category and priority (the brief says TBC; defaults are seeded and editable).
 2. Brief §8 (offline) is missing from the document. It's built as offline capture that syncs later, keeping device time; please confirm.
 3. Bleed interval limits (all TBC except reporting at 90 min).
-4. Which LIS JDJ runs, and its protocol, so the generic signed webhook and requisition adapter ([docs/LIS.md](docs/LIS.md)) can be pointed at it.
+4. SkyLIMS message mapping, requisition field, SkyLog use and requisition lookup, to confirm with Mukon ([docs/LIS.md](docs/LIS.md#skylims-mukon-informatics-hl7-v2-over-mllp)). The HL7 listener is built with a configurable starting mapping.
 5. The photo sharpness threshold (currently a blur score of 60) should be tuned on real phone photos of requisitions.
 6. Push notifications are off by decision (e-mail + in-app only). Nurses are alerted immediately only while the field app is open.
 7. Retention periods for bleed photos and attachments (off by default). Set them to match JDJ's records policy.

@@ -236,6 +236,7 @@ function SystemStatus() {
         <Row ok={backupAge != null && backupAge < 26} label="Nightly backup" value={s.last_backup ? `Last completed ${sast(s.last_backup)} (${Math.round(backupAge!)} h ago)` : 'No backup recorded yet'} />
         <Row ok={s.database.audit_intact} label="Audit trail" value={s.database.audit_intact ? `${s.database.audit_entries.toLocaleString()} entries, hash chain verified` : `Chain broken at entry #${s.database.audit_broken_at}`} />
         <Row ok={s.files.disk ? s.files.disk.free / s.files.disk.total > 0.1 : null} label="Disk (attachment store)" value={s.files.disk ? `${bytes(s.files.disk.free)} free of ${bytes(s.files.disk.total)} · ${s.files.files.toLocaleString()} encrypted files, ${bytes(s.files.bytes)}` : 'Unknown'} />
+        {s.skylims && <Row ok={s.skylims.ok} label="SkyLIMS feed" value={<>Last message {sast(s.skylims.at)}: {s.skylims.detail}{s.skylims.errors > 0 && <span className="text-bad"> · {s.skylims.errors} error{s.skylims.errors > 1 && 's'} so far, last: {s.skylims.last_error}</span>}</>} />}
         <Row ok={null} label="Scheduled reports" value={`Daily last sent ${s.reports.daily ?? '—'} · monthly ${s.reports.monthly ?? '—'}`} />
       </Card>
       <Card title="System">

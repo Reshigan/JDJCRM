@@ -9,7 +9,7 @@
     "migrate": "tsx src/migrate.ts",
     "seed": "tsx src/seed.ts",
     "loadtest": "tsx src/loadtest.ts",
-    "build": "esbuild src/server.ts src/worker.ts src/migrate.ts src/seed.ts src/rotate-key.ts --bundle --platform=node --format=esm --target=node22 --outdir=dist --packages=external --alias:@baton/core=../../packages/core/src/index.ts"
+    "build": "esbuild src/server.ts src/worker.ts src/migrate.ts src/seed.ts src/rotate-key.ts src/mllp.ts --bundle --platform=node --format=esm --target=node22 --outdir=dist --packages=external --alias:@baton/core=../../packages/core/src/index.ts"
   },
   "devDependencies": {
     "@types/nodemailer": "^8.0.2",

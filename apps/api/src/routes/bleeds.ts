@@ -120,7 +120,7 @@ export type Step = keyof typeof STEPS;
 export const PENDING = 'Pending —';
 
 /** One code path for the sample desk and the LIS: order, idempotency, breach gate, audit, nurse notice. */
-export async function applyStep(tx: Sql, id: string, step: Step, o: { actor: string | null; ip?: string; breach_reason?: string | null; at?: Date; source?: 'LIS' }) {
+export async function applyStep(tx: Sql, id: string, step: Step, o: { actor: string | null; ip?: string; breach_reason?: string | null; at?: Date; source?: string }) {
   const s = STEPS[step];
   const b = await loadBleed(tx, id, true);
   if (b.cancelled_at || b.closed_at || b.outcome !== 'successful') fail(409, 'Bleed is no longer active');

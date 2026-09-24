@@ -80,6 +80,12 @@ jobs:
           docker compose ps
       - name: Seed demo data inside the api container
         run: docker compose exec -T -e ADMIN_PASSWORD='ChangeMe!2026' api node dist/seed.js --demo
+      - name: SkyLIMS HL7 listener answers with an ACK
+        run: |
+          COMPOSE_PROFILES=skylims docker compose up -d lis
+          ok=; for i in $(seq 1 30); do node scripts/hl7-ping.mjs && ok=1 && break; sleep 2; done
+          docker compose logs lis | tail -5
+          test -n "$ok"
       - name: Security headers present
         run: |
           curl -skI https://localhost/ | tee headers.txt

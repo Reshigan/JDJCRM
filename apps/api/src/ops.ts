@@ -38,7 +38,7 @@ function dirSize(dir: string) {
 }
 
 export async function status() {
-  const rows = await sql`select key, value from settings where key in ('worker_heartbeat', 'last_backup', 'report_last_daily', 'report_last_monthly')`;
+  const rows = await sql`select key, value from settings where key in ('worker_heartbeat', 'last_backup', 'report_last_daily', 'report_last_monthly', 'skylims_last')`;
   const s = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   const [db] = await sql`select pg_database_size(current_database())::bigint as bytes, version() as version,
     (select count(*)::int from tickets) as tickets, (select count(*)::int from bleeds) as bleeds,
@@ -52,6 +52,7 @@ export async function status() {
   return {
     worker: { ...s.worker_heartbeat, age_minutes: hbAge, healthy: hbAge != null && hbAge < 5 },
     last_backup: s.last_backup ?? null,
+    skylims: s.skylims_last ?? null,
     reports: { daily: s.report_last_daily ?? null, monthly: s.report_last_monthly ?? null },
     database: { ...db, bytes: Number(db.bytes), audit_intact: db.audit_broken_at == null },
     files: { ...dirSize(`${env.dataDir}/blobs`), disk },

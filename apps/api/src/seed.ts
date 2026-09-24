@@ -3,6 +3,7 @@ import zlib from 'node:zlib';
 import { sql } from './db';
 import { hashPassword } from './crypto';
 import { migrate } from './migrate';
+import { DEFAULT_MAPPING } from './hl7';
 
 const DEPTS = [
   ['CS', 'Client Services'], ['ANA', 'Analytical'], ['PRE', 'Pre-Analytical'], ['LOG', 'Logistics'],
@@ -51,6 +52,7 @@ export async function seed(demo: boolean, tickets = demo) {
   }
   const [canned] = await sql`select count(*)::int as n from canned_responses`;
   if (!canned.n) await sql`insert into canned_responses ${sql(CANNED.map(([title, body]) => ({ title, body })))}`;
+  await sql`insert into settings values ('skylims_mapping', ${sql.json(DEFAULT_MAPPING as any)}) on conflict do nothing`;
   if (demo) await seedDemo(dept, tickets);
 }
 

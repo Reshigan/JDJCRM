@@ -5,11 +5,37 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { audit, fail, sql } from '../db';
+import { audit, fail, sql, type Sql } from '../db';
 import { applyStep, type Step } from './bleeds';
 
 const secret = () => (process.env.LIS_WEBHOOK_SECRET_FILE ? readFileSync(process.env.LIS_WEBHOOK_SECRET_FILE, 'utf8').trim() : process.env.LIS_WEBHOOK_SECRET);
-const EVENTS: Record<string, Step> = { sample_received: 'receive', lab_accepted: 'lab_accept', results_released: 'release' };
+export const EVENTS: Record<string, Step> = { sample_received: 'receive', lab_accepted: 'lab_accept', results_released: 'release' };
+export type LisEvent = { event_id: string; event: string; bleed_number?: string; requisition_no?: string; at?: Date; breach_reason?: string };
+
+/** One path for every LIS feed (signed webhook, SkyLIMS HL7): idempotent by event id; stores only the derived event, never the raw message. */
+export async function applyLisEvent(e: LisEvent, o: { source: string; ip?: string }) {
+  const [seen] = await sql`select result from lis_events where event_id = ${e.event_id}`;
+  if (seen) return { ...seen.result, replay: true };
+  return sql.begin(async (tx: Sql) => {
+    const [b] = await tx`select id, number from bleeds where closed_at is null and cancelled_at is null and outcome = 'successful'
+      and (${e.bleed_number ?? null}::text is not null and number = ${e.bleed_number ?? null}
+           or ${e.requisition_no ?? null}::text is not null and requisition_no ilike ${e.requisition_no ?? null})
+      order by opened_at desc limit 1`;
+    let result: Record<string, unknown>;
+    if (!b) result = { ok: false, error: 'No active bleed matches' };
+    else {
+      try {
+        result = { ...(await applyStep(tx, b.id, EVENTS[e.event], { actor: null, ip: o.ip, breach_reason: e.breach_reason, at: e.at, source: o.source })), bleed: b.number };
+      } catch (err: any) {
+        result = { ok: false, bleed: b.number, error: err.message };
+      }
+    }
+    const payload = { event: e.event, bleed_number: e.bleed_number ?? null, requisition_no: e.requisition_no ?? null, at: e.at ?? null, source: o.source };
+    await tx`insert into lis_events (event_id, payload, result) values (${e.event_id}, ${tx.json(payload as any)}, ${tx.json(result as any)})`;
+    await audit(tx, { actor: null, action: 'integration.lis_event', entity: 'integration', id: e.event_id, data: { event: e.event, source: o.source, ...result }, ip: o.ip });
+    return result;
+  });
+}
 
 const Event = z.object({
   event_id: z.string().min(1).max(100),
@@ -40,27 +66,7 @@ export async function integrationRoutes(app: FastifyInstance) {
       if (!ok || !/^\d+$/.test(ts) || Math.abs(Date.now() / 1000 - Number(ts)) > 300) fail(401, 'Invalid signature');
       const e = Event.parse(req.body);
 
-      const [seen] = await sql`select result from lis_events where event_id = ${e.event_id}`;
-      if (seen) return { ...seen.result, replay: true };
-
-      return sql.begin(async (tx) => {
-        const [b] = await tx`select id, number from bleeds where closed_at is null and cancelled_at is null and outcome = 'successful'
-          and (${e.bleed_number ?? null}::text is not null and number = ${e.bleed_number ?? null}
-               or ${e.requisition_no ?? null}::text is not null and requisition_no ilike ${e.requisition_no ?? null})
-          order by opened_at desc limit 1`;
-        let result: object;
-        if (!b) result = { ok: false, error: 'No active bleed matches' };
-        else {
-          try {
-            result = { ...(await applyStep(tx, b.id, EVENTS[e.event], { actor: null, ip: req.ip, breach_reason: e.breach_reason, at: e.at, source: 'LIS' })), bleed: b.number };
-          } catch (err: any) {
-            result = { ok: false, bleed: b.number, error: err.message };
-          }
-        }
-        await tx`insert into lis_events (event_id, payload, result) values (${e.event_id}, ${tx.json(e as any)}, ${tx.json(result as any)})`;
-        await audit(tx, { actor: null, action: 'integration.lis_event', entity: 'integration', id: e.event_id, data: { event: e.event, ...result }, ip: req.ip });
-        return result;
-      });
+      return applyLisEvent(e, { source: 'LIS', ip: req.ip });
     });
   });
 
