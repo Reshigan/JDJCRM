@@ -47,7 +47,7 @@ export function Login() {
               <span key={i} className={i === 3 ? 'pulse h-2 flex-1 rounded-full' : 'h-2 flex-1 rounded-full'} style={{ background: c, opacity: i > 3 ? 0.3 : 1 }} />
             ))}
           </div>
-          <div className="mt-2 grid grid-cols-6 gap-1.5 text-[11px] text-white/45">
+          <div className="mt-2 grid grid-cols-6 gap-1.5 text-[11px] text-white/60">
             {['Response', 'Bleed', 'Logistics', 'Receiving', 'Processing', 'Reporting'].map((s) => <span key={s}>{s}</span>)}
           </div>
         </div>

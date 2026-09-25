@@ -29,7 +29,7 @@ export function Search() {
           <Card title={`Queries (${data.tickets.length})`}>
             <ul className="-my-2 divide-y divide-line">
               {data.tickets.map((t: any) => (
-                <li key={t.id}><Link to={`/tickets/${t.id}`} className="flex items-center justify-between gap-3 py-2.5 hover:opacity-80">
+                <li key={t.id}><Link to={`/tickets/${t.id}`} className="flex items-center justify-between gap-3 py-2.5 -mx-2 rounded-md px-2 hover:bg-surface-2">
                   <div className="min-w-0"><div className="num text-sm font-medium">{t.number}</div><div className="truncate text-xs text-muted">{t.category} · {t.complainant_name}{t.patient_name && ` · ${t.patient_name}`} · {sast(t.created_at).slice(0, 10)}</div></div>
                   <StatePill state={t.state as QueryState} />
                 </Link></li>
@@ -40,7 +40,7 @@ export function Search() {
           <Card title={`Hospital bleeds (${data.bleeds.length})`}>
             <ul className="-my-2 divide-y divide-line">
               {data.bleeds.map((b: any) => (
-                <li key={b.id}><Link to={`/bleeds/${b.id}`} className="flex items-center justify-between gap-3 py-2.5 hover:opacity-80">
+                <li key={b.id}><Link to={`/bleeds/${b.id}`} className="flex items-center justify-between gap-3 py-2.5 -mx-2 rounded-md px-2 hover:bg-surface-2">
                   <div className="min-w-0"><div className="num text-sm font-medium">{b.number}</div><div className="truncate text-xs text-muted">{b.hospital} · {patientRef(b.patient_name, b.folder_no)}{b.requisition_no && ` · ${b.requisition_no}`} · {sast(b.opened_at).slice(0, 10)}</div></div>
                   <Badge tone="brand">{BLEED_STATES[bleedState(b)]}</Badge>
                 </Link></li>

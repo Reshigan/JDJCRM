@@ -15,6 +15,9 @@ import { miscRoutes } from './routes/misc';
 import { contactRoutes } from './routes/contacts';
 import { ticketRoutes } from './routes/tickets';
 
+/** Every registered route, for the route-guard test. */
+export const ROUTES: { method: string; url: string; auth?: string }[] = [];
+
 export async function buildApp() {
   const app = Fastify({ logger: process.env.NODE_ENV === 'test' ? false : { level: 'info', serializers: { req: (r) => ({ method: r.method, url: r.url.split('?')[0], ip: r.ip }) } }, // no query strings: they carry patient names
     trustProxy: true, bodyLimit: 1024 * 1024 });
@@ -35,6 +38,7 @@ export async function buildApp() {
     return reply.code(500).send({ error: 'Something went wrong' });
   });
 
+  app.addHook('onRoute', (r) => { for (const m of [r.method].flat()) if (m !== 'HEAD') ROUTES.push({ method: m, url: r.url, auth: (r.config as any)?.auth }); });
   authPlugin(app);
   miscRoutes(app);
   ticketRoutes(app);

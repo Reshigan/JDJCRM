@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")/.."
 [ -f "$1" ] && [ -f "$2" ] || { echo "usage: $0 <baton.dump> <blobs.tgz>"; exit 1; }
 printf "This REPLACES all current Baton data. Type RESTORE to continue: "; read ok; [ "$ok" = RESTORE ] || exit 1
-docker compose stop api worker web
+docker compose --profile skylims stop api worker web lis
 docker compose exec -T db sh -c 'dropdb -U baton --if-exists baton && createdb -U baton baton'
 docker compose exec -T db sh -c 'pg_restore -U baton -d baton --no-owner' < "$1"
 docker compose run --rm -T -v "$PWD/$(dirname "$2"):/in" --entrypoint sh api -c "rm -rf /data/blobs && tar xzf /in/$(basename "$2") -C /data"

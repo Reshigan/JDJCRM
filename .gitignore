@@ -5,3 +5,5 @@ data
 *.log
 secrets/
 backups/
+certs/*
+!certs/.gitkeep

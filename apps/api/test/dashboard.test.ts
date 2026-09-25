@@ -39,6 +39,9 @@ describe.skipIf(!url)('dashboard and analytics (API + DB)', async () => {
   });
 
   it('live view: today at a glance and a breach register with reasons', async () => {
+    // Working-hours clocks depend on when the suite runs (nights, weekends, public holidays): make one query certainly late.
+    await sql`update assignments set started_at = now() - interval '30 days'
+      where id = (select id from assignments where state in ('assigned', 'in_progress') order by created_at limit 1)`;
     expect((await get('nurse', '/api/dashboard/live')).statusCode).toBe(403);
     const r = (await get('cs', '/api/dashboard/live')).json();
     expect(r.tiles.bleeds_requested).toBeGreaterThanOrEqual(8);

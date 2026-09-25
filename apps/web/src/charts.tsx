@@ -105,14 +105,14 @@ export function Columns({ data, label, fmtDay = (d: string) => d.slice(5) }: { d
   const y = (v: number) => PAD.t + (H - PAD.t - PAD.b) * (1 - v / top);
   return (
     <div ref={t.box} className="relative" onPointerLeave={t.hide}>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${label} per day`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="group" aria-label={`${label} per day`}>
         {[0, top / 2, top].map((v) => (
           <g key={v}><line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="var(--line)" /><text x={PAD.l - 6} y={y(v) + 3} textAnchor="end" className="fill-[var(--muted)] text-[10px]">{v}</text></g>
         ))}
         {data.map((d, i) => {
           const x = PAD.l + i * band + (band - bw) / 2, h = y(0) - y(d.n), r = Math.min(4, h);
           return (
-            <g key={d.day} tabIndex={0} aria-label={`${d.day}: ${d.n}`} className="outline-none"
+            <g key={d.day} tabIndex={0} role="img" aria-label={`${d.day}: ${d.n}`} className="outline-none"
               onPointerMove={(e) => t.show(e, <><b className="num text-sm">{d.n}</b> <span className="text-muted">{label} · {d.day}</span></>)}
               onFocus={(e) => t.show(e.currentTarget, <><b className="num text-sm">{d.n}</b> <span className="text-muted">{label} · {d.day}</span></>)} onBlur={t.hide}>
               <rect x={PAD.l + i * band} y={PAD.t} width={band} height={H - PAD.t - PAD.b} fill="transparent" />

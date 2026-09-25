@@ -13,9 +13,11 @@ x-api-env: &api-env
   SMTP_PASS: ${SMTP_PASS:-}
   SMTP_FROM: ${SMTP_FROM:-Baton <baton@jdj.local>}
   SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
+  SMTP_CA_FILE: ${SMTP_CA_FILE:-}
   LDAP_URL: ${LDAP_URL:-}
   LDAP_BASE_DN: ${LDAP_BASE_DN:-}
   LDAP_UPN_SUFFIX: ${LDAP_UPN_SUFFIX:-}
+  LDAP_CA_FILE: ${LDAP_CA_FILE:-}
   ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@baton.local}
   LIS_WEBHOOK_SECRET: ${LIS_WEBHOOK_SECRET:-}
   LIS_VALIDATE_URL: ${LIS_VALIDATE_URL:-}
@@ -44,7 +46,7 @@ services:
     restart: unless-stopped
     environment: *api-env
     secrets: [db_password, master_key]
-    volumes: [blobs:/data]
+    volumes: [blobs:/data, ./certs:/certs:ro] # ./certs: internal CA certificates for LDAPS / SMTP
     depends_on: { db: { condition: service_healthy } }
 
   worker:
@@ -53,7 +55,7 @@ services:
     command: ["node", "dist/worker.js"]
     environment: *api-env
     secrets: [db_password, master_key]
-    volumes: [blobs:/data]
+    volumes: [blobs:/data, ./certs:/certs:ro] # ./certs: internal CA certificates for LDAPS / SMTP
     depends_on: { api: { condition: service_healthy } }
 
   # SkyLIMS HL7 v2 listener (MLLP). Off unless enabled: COMPOSE_PROFILES=skylims in .env. See docs/LIS.md.

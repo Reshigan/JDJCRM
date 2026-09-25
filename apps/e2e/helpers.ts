@@ -1,4 +1,5 @@
 import { deflateSync, crc32 } from 'node:zlib';
+import { createHmac } from 'node:crypto';
 import type { Browser, BrowserContextOptions, Page } from '@playwright/test';
 
 export const PASSWORD = 'Baton!demo2026';
@@ -39,3 +40,16 @@ export function png(striped: boolean, w = 480, h = 320) {
 }
 
 export const uniq = () => Math.random().toString(36).slice(2, 7).toUpperCase();
+
+/** RFC 6238 code for a base32 secret, as an authenticator app shows it. */
+export function totp(secret: string, t = Date.now()) {
+  const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const c of secret.replace(/=+$/, '')) bits += B32.indexOf(c).toString(2).padStart(5, '0');
+  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
+  const msg = Buffer.alloc(8);
+  msg.writeBigUInt64BE(BigInt(Math.floor(t / 30_000)));
+  const h = createHmac('sha1', key).update(msg).digest();
+  const o = h[19] & 15;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}

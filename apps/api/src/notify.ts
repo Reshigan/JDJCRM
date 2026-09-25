@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import nodemailer from 'nodemailer';
 import { env } from './env';
 import { type Sql } from './db';
@@ -8,6 +9,7 @@ const mailer = env.smtp.host
       port: env.smtp.port,
       auth: env.smtp.user ? { user: env.smtp.user, pass: env.smtp.pass } : undefined,
       requireTLS: process.env.SMTP_REQUIRE_TLS !== 'false', // STARTTLS to the relay unless explicitly disabled
+      tls: process.env.SMTP_CA_FILE ? { ca: [readFileSync(process.env.SMTP_CA_FILE)] } : undefined, // relay certificate from an internal CA
     })
   : null;
 

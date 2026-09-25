@@ -99,12 +99,12 @@ export function Tickets() {
           ))}
         </div>
         {all && (
-          <div className="w-full sm:w-52"><Select value={p.department_id ?? ''} onChange={(e) => set('department_id', e.target.value)} className="h-9">
+          <div className="w-full sm:w-52"><Select aria-label="Department" value={p.department_id ?? ''} onChange={(e) => set('department_id', e.target.value)} className="h-9">
             <option value="">All departments</option>
             {lk?.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select></div>
         )}
-        <div className="w-full sm:w-40"><Select value={p.priority ?? ''} onChange={(e) => set('priority', e.target.value)} className="h-9">
+        <div className="w-full sm:w-40"><Select aria-label="Priority" value={p.priority ?? ''} onChange={(e) => set('priority', e.target.value)} className="h-9">
           <option value="">Any priority</option>
           {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </Select></div>

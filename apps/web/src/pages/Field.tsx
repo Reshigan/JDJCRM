@@ -267,7 +267,7 @@ function Capture({ b, onDone }: { b: any; onDone: (msg: string) => void }) {
             <div className="text-sm font-semibold">Tubes drawn</div>
             {tubes.map((t, i) => (
               <div key={i} className="flex items-center gap-2">
-                <Select value={t.type} onChange={(e) => setTubes(tubes.map((x, j) => (j === i ? { ...x, type: e.target.value } : x)))} className="flex-1">
+                <Select aria-label={`Tube ${i + 1} type`} value={t.type} onChange={(e) => setTubes(tubes.map((x, j) => (j === i ? { ...x, type: e.target.value } : x)))} className="flex-1">
                   {TUBE_TYPES.map((x) => <option key={x}>{x}</option>)}
                 </Select>
                 <Button type="button" variant="outline" aria-label="Fewer" onClick={() => setTubes(t.count > 1 ? tubes.map((x, j) => (j === i ? { ...x, count: x.count - 1 } : x)) : tubes.filter((_, j) => j !== i))}><Minus size={16} /></Button>

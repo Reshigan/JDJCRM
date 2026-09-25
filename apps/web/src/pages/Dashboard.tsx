@@ -84,7 +84,7 @@ function Live() {
           <ul className="-my-2 divide-y divide-line">
             {active.slice(0, 8).map((b) => (
               <li key={b.id}>
-                <Link to={`/bleeds/${b.id}`} className="grid grid-cols-[1fr_170px] items-center gap-3 py-2.5 hover:opacity-80">
+                <Link to={`/bleeds/${b.id}`} className="grid grid-cols-[1fr_170px] items-center gap-3 py-2.5 -mx-2 rounded-md px-2 hover:bg-surface-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{b.hospital} <span className="num text-xs font-normal text-muted">{b.number}</span></div>
                     <div className="truncate text-xs text-muted">{b.nurse ?? 'Unallocated'} · {BLEED_STATES[b.state as BleedState]}{b.current && ` · ${formatMinutes(b.current.used)} in ${b.current.label.toLowerCase()}`}</div>
@@ -103,7 +103,7 @@ function Live() {
               const left = run.length ? Math.min(...run.map((a: any) => a.sla.remaining)) : null;
               return (
                 <li key={t.id}>
-                  <Link to={`/tickets/${t.id}`} className="grid grid-cols-[1fr_auto] items-center gap-3 py-2.5 hover:opacity-80">
+                  <Link to={`/tickets/${t.id}`} className="grid grid-cols-[1fr_auto] items-center gap-3 py-2.5 -mx-2 rounded-md px-2 hover:bg-surface-2">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{t.category} <span className="num text-xs font-normal text-muted">{t.number}</span></div>
                       <div className={cx('truncate text-xs', left != null && left < 0 ? 'text-bad' : 'text-muted')}>{left == null ? 'With Client Services' : left < 0 ? `${formatMinutes(-left)} over` : `${formatMinutes(left)} left`}</div>

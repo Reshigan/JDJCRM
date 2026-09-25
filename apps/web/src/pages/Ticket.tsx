@@ -89,7 +89,7 @@ function Assignment({ t, a, act }: { t: any; a: any; act: ReturnType<typeof useA
         </div>
         <div className="flex flex-wrap gap-2">
           {a.actions.includes('assign_user') && (
-            <Select className="h-8 w-40 text-[13px]" value={a.assignee_id ?? ''} onChange={(e) => e.target.value && act.mutate({ action: 'assign_user', assignment_id: a.id, user_id: e.target.value })}>
+            <Select aria-label={`Assign ${a.department} to`} className="h-8 w-40 text-[13px]" value={a.assignee_id ?? ''} onChange={(e) => e.target.value && act.mutate({ action: 'assign_user', assignment_id: a.id, user_id: e.target.value })}>
               <option value="">Assign to…</option>
               {people.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </Select>
