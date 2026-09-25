@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       baton_url:
-        description: 'Baton server URL the app loads (e.g. https://crm.jdj.local)'
+        description: 'Pelo CRM server URL the app loads (e.g. https://crm.jdj.local)'
         default: 'https://crm.local'
 jobs:
   apk:
