@@ -1,4 +1,4 @@
-name: Android (Baton Field)
+name: Android (Pelo CRM Field)
 on:
   push:
     paths: ['apps/android/**', '.github/workflows/android.yml']
