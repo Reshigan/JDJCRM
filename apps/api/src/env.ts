@@ -17,7 +17,7 @@ export const env = {
     port: Number(process.env.SMTP_PORT ?? 25),
     user: process.env.SMTP_USER,
     pass: fileOr('SMTP_PASS'),
-    from: process.env.SMTP_FROM ?? 'Baton <baton@localhost>',
+    from: process.env.SMTP_FROM ?? 'Pelo CRM <crm@localhost>', // BRAND.product
   },
   ldap: {
     url: process.env.LDAP_URL, // ldaps://dc01.jdj.local

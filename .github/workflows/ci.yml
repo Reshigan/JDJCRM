@@ -93,7 +93,7 @@ jobs:
       - name: Load demo data (the journeys below sign in without two-factor)
         run: |
           docker compose exec -T -e ADMIN_PASSWORD='ChangeMe!2026' api node dist/seed.js --demo
-          docker compose exec -T db psql -U baton -qc "update users set mfa_enabled = false, totp_secret = null where email = 'admin@baton.local'"
+          docker compose exec -T db psql -U baton -qc "update users set mfa_enabled = false, totp_secret = null where email = 'admin@crm.local'"
       - name: Every journey through Caddy/HTTPS
         run: npx playwright test
         working-directory: apps/e2e

@@ -29,7 +29,7 @@ describe.skipIf(!url)('dashboard and analytics (API + DB)', async () => {
     await seed(true, true); // full demo: queries + bleeds driven through the API
     app = await buildApp();
     for (const [who, email] of Object.entries({ cs: 'agent', sup: 'supervisor', exec: 'exec', mgr: 'manager.pre', nurse: 'nursing' })) {
-      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@baton.local`, password: 'Baton!demo2026' } });
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@crm.local`, password: 'Demo!crm2026' } });
       jar[who] = String(r.headers['set-cookie']).split(';')[0];
     }
   }, 60_000);

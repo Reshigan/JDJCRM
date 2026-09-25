@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router';
 import { BLEED_STATES, can, formatMinutes, patientRef, type BleedState } from '@baton/core';
 import { useMe } from '../api';
-import { BatonBar, BatonMark, cx, DeptClock, FlagPill } from '../ui';
+import { StageBar, cx, DeptClock, FlagPill, Wordmark } from '../ui';
 import { TILES, useLive } from './Dashboard';
 import { useLiveEvents } from '../live';
 
@@ -23,8 +23,8 @@ export function Wall() {
   return (
     <div className="flex h-dvh flex-col gap-4 overflow-hidden bg-bg p-6 text-text">
       <header className="flex items-center gap-4">
-        <BatonMark size={40} />
-        <div className="text-2xl font-semibold tracking-tight">Baton · Live operations</div>
+        <Wordmark size={30} dark label="" />
+        <div className="font-display text-2xl font-bold tracking-tight">CRM · Live operations</div>
         <div className="num ml-auto text-3xl font-semibold">{now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Johannesburg' })}</div>
       </header>
       <div className="grid grid-cols-6 gap-4">
@@ -46,7 +46,7 @@ export function Wall() {
                   <div className="truncate text-sm text-muted">{patientRef(b.patient_name, b.folder_no)} · {b.nurse ?? 'Unallocated'} · {BLEED_STATES[b.state as BleedState]}</div>
                 </div>
                 <div>
-                  <BatonBar intervals={b.intervals} />
+                  <StageBar intervals={b.intervals} />
                   {b.current && <div className={cx('num mt-1 text-right text-sm', b.current.flag === 'red' ? 'text-bad' : 'text-muted')}>{b.current.label} {formatMinutes(b.current.used)} / {formatMinutes(b.current.limit)}</div>}
                 </div>
                 <FlagPill flag={b.flag} />

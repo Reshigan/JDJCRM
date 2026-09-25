@@ -19,7 +19,7 @@ async function code(page: Page, secret: string) {
 }
 
 test('first sign-in: the administrator must enrol two-factor, then sees a healthy system', async ({ page }) => {
-  await password(page, 'admin@baton.local', ADMIN_PW);
+  await password(page, 'admin@crm.local', ADMIN_PW);
   await expect(page.getByText(/requires two-factor sign-in/)).toBeVisible();
   await expect(page.getByAltText('Authenticator QR code')).toBeVisible();
   adminSecret = (await page.locator('code').first().innerText()).trim();
@@ -33,7 +33,7 @@ test('first sign-in: the administrator must enrol two-factor, then sees a health
 
 test('the administrator creates a Client Services user, who must also enrol two-factor', async ({ browser }) => {
   const admin = await browser.newPage();
-  await password(admin, 'admin@baton.local', ADMIN_PW);
+  await password(admin, 'admin@crm.local', ADMIN_PW);
   await expect(admin.getByText('Enter your code')).toBeVisible();
   await code(admin, adminSecret);
   await admin.waitForURL(/\/admin/);

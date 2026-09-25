@@ -22,7 +22,7 @@ describe.skipIf(!url)('query lifecycle (API + DB)', async () => {
     get: (url: string) => app.inject({ method: 'GET', url, headers: { cookie: cookies[who] } }),
     post: (url: string, payload?: object) => app.inject({ method: 'POST', url, payload: payload ?? {}, headers: { cookie: cookies[who] } }),
   });
-  const login = async (who: string, email: string, password = 'Baton!demo2026') => {
+  const login = async (who: string, email: string, password = 'Demo!crm2026') => {
     const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: email, password } });
     expect(r.statusCode, r.body).toBe(200);
     cookies[who] = String(r.headers['set-cookie']).split(';')[0];
@@ -32,11 +32,11 @@ describe.skipIf(!url)('query lifecycle (API + DB)', async () => {
     await sql.unsafe('drop schema public cascade; create schema public');
     await seed(true, false);
     app = await buildApp();
-    await login('agent', 'agent@baton.local');
-    await login('pre', 'preanalytical@baton.local');
-    await login('log', 'logistics@baton.local');
-    await login('ana', 'analytical@baton.local');
-    await login('exec', 'exec@baton.local');
+    await login('agent', 'agent@crm.local');
+    await login('pre', 'preanalytical@crm.local');
+    await login('log', 'logistics@crm.local');
+    await login('ana', 'analytical@crm.local');
+    await login('exec', 'exec@crm.local');
   });
   afterAll(async () => {
     await app?.close();
@@ -106,7 +106,7 @@ describe.skipIf(!url)('query lifecycle (API + DB)', async () => {
     const close = { action: 'close', closure_reason: 'resolved_corrective', root_cause: 'logistics' };
     expect((await as('agent').post(`/api/tickets/${id}/actions`, close)).statusCode).toBe(409);
     // direct SQL bypass is blocked by the DB trigger too
-    const [agent] = await sql`select id from users where email = 'agent@baton.local'`;
+    const [agent] = await sql`select id from users where email = 'agent@crm.local'`;
     await expect(sql`update tickets set state = 'closed', closure_reason = 'resolved', root_cause = 'other', closed_at = now(), closed_by = ${agent.id} where id = ${id}`).rejects.toThrow();
 
     expect((await as('agent').post(`/api/tickets/${id}/actions`, { action: 'review' })).statusCode).toBe(200);

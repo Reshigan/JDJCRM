@@ -4,7 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { Lock, MapPinOff, Plus, WifiOff } from 'lucide-react';
 import { BLEED_STATES, can, formatMinutes, patientRef, type BleedState } from '@baton/core';
 import { api, useMe } from '../api';
-import { ago, Badge, BatonBar, Button, cx, Empty, ErrorText, FlagPill, Modal, type Flag } from '../ui';
+import { ago, Badge, StageBar, Button, cx, Empty, ErrorText, FlagPill, Modal, type Flag } from '../ui';
 import { SavedViews } from '../tools';
 
 const RANK = { red: 2, amber: 1, green: 0 } as const;
@@ -99,7 +99,7 @@ export function Bleeds() {
               </div>
             </div>
             <div>
-              <BatonBar intervals={b.intervals} />
+              <StageBar intervals={b.intervals} />
               <div className="mt-1.5 flex items-center justify-between text-xs">
                 <span className="font-medium">{BLEED_STATES[b.state as BleedState]}</span>
                 {b.current && <span className={cx('num', b.current.flag === 'red' ? 'text-bad' : 'text-muted')}>{b.current.label} {formatMinutes(b.current.used)} / {formatMinutes(b.current.limit)}</span>}

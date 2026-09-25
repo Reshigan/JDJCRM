@@ -1,8 +1,8 @@
 # LIS integration
 
-Baton works without a LIS: the laboratory records its stages on the **Sample desk**. With a LIS connected, the lab stages are recorded automatically at the moment they happen in the LIS, and requisition numbers are checked as they are typed.
+Pelo CRM works without a LIS: the laboratory records its stages on the **Sample desk**. With a LIS connected, the lab stages are recorded automatically at the moment they happen in the LIS, and requisition numbers are checked as they are typed.
 
-## Inbound events (LIS → Baton)
+## Inbound events (LIS → Pelo CRM)
 
 `POST https://<baton>/api/integrations/lis/events`, with `Content-Type: application/json`.
 
@@ -26,7 +26,7 @@ Baton works without a LIS: the laboratory records its stages on the **Sample des
 ```sh
 ts=$(date +%s); body='{"event_id":"t1","event":"sample_received","requisition_no":"RQ-1"}'
 sig=$(printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$LIS_WEBHOOK_SECRET" -hex | cut -d' ' -f2)
-curl -sk https://baton.local/api/integrations/lis/events -H 'content-type: application/json' \
+curl -sk https://crm.local/api/integrations/lis/events -H 'content-type: application/json' \
   -H "x-baton-timestamp: $ts" -H "x-baton-signature: sha256=$sig" -d "$body"
 ```
 
@@ -39,11 +39,11 @@ curl -sk https://baton.local/api/integrations/lis/events -H 'content-type: appli
 
 Every event is recorded in the audit trail as `integration.lis_event`. Stages recorded this way show the LIS as their source.
 
-## Requisition check (Baton → LIS)
+## Requisition check (Pelo CRM → LIS)
 
 Set `LIS_VALIDATE_URL`, e.g. `https://lis.jdj.local/api/requisitions/{requisition}`. `{requisition}` is replaced with the number being checked. Optionally set `LIS_TOKEN`, which is sent as a Bearer token.
 
-| LIS answer | Baton shows |
+| LIS answer | Pelo CRM shows |
 |---|---|
 | `200` (optionally `{"patient_name": "…"}`) | "Found in the LIS", plus whether the patient name matches |
 | `404` | "Not found in the LIS — check the number" |
@@ -53,7 +53,7 @@ Only found / not found and match / no match are passed back to the browser. The 
 
 ## SkyLIMS (Mukon Informatics): HL7 v2 over MLLP
 
-JDJ's LIS is SkyLIMS. Baton has a built-in HL7 v2 listener for it, so no interface engine is needed. Mukon's interface specification was not available when this was built. The message mapping below is therefore a **starting point to confirm with Mukon**, and it can be changed in Administration with no release.
+JDJ's LIS is SkyLIMS. Pelo CRM has a built-in HL7 v2 listener for it, so no interface engine is needed. Mukon's interface specification was not available when this was built. The message mapping below is therefore a **starting point to confirm with Mukon**, and it can be changed in Administration with no release.
 
 **Enable it.**
 
@@ -63,7 +63,7 @@ JDJ's LIS is SkyLIMS. Baton has a built-in HL7 v2 listener for it, so no interfa
 4. Ask Mukon to send order-status and result messages for JDJ's orders to `<baton-host>:2575`, using standard MLLP framing.
 5. Test the link with `node scripts/hl7-ping.mjs <baton-host>`, which should print `MSA|AA`.
 
-**What Baton does with each message.**
+**What Pelo CRM does with each message.**
 
 - Every message gets an ACK:
   - `AA`: accepted. This includes messages that aren't hospital bleeds, so SkyLIMS never resends them in a loop.
@@ -71,7 +71,7 @@ JDJ's LIS is SkyLIMS. Baton has a built-in HL7 v2 listener for it, so no interfa
   - `AR`: the message could not be parsed.
 - The message control ID (MSH-10) is the event ID. A resent message is recorded only once.
 - The requisition number finds the active bleed. The stage is then recorded exactly as for the webhook above: order checks, "Pending" breach reasons, and the audit trail with source **SkyLIMS**.
-- **POPIA.** The message itself is discarded. Result messages carry results and patient details, and Baton keeps neither. It keeps only the event, the time, the requisition number and the outcome.
+- **POPIA.** The message itself is discarded. Result messages carry results and patient details, and Pelo CRM keeps neither. It keeps only the event, the time, the requisition number and the outcome.
 - **Administration → System status** shows the last message received, its outcome, and the error count.
 
 **Mapping** (Admin → Settings → `skylims_mapping`). A path is `SEGMENT-field[.component]`; the component defaults to 1. A rule applies when **every** listed field matches its regular expression in **every** occurrence of its segment. So "results released" needs all OBR segments to be final, and partial results are ignored.
@@ -95,6 +95,6 @@ JDJ's LIS is SkyLIMS. Baton has a built-in HL7 v2 listener for it, so no interfa
 1. Which message and status code mark each of the three stages?
 2. Which field carries JDJ's requisition number?
 3. Is **SkyLog** in use? If it is, "sample received" should come from SkyLIMS/SkyLog. The Pre-Analytical sample desk then only confirms it, so two systems don't record the same moment.
-4. Is there a requisition lookup that Baton can call at intake? If so, set `LIS_VALIDATE_URL` above.
+4. Is there a requisition lookup that Pelo CRM can call at intake? If so, set `LIS_VALIDATE_URL` above.
 
 An HL7 interface engine (e.g. Mirth / NextGen Connect) can still sit in front and post to the webhook instead, if JDJ prefers one.

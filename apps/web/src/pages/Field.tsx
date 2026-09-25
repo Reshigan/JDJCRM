@@ -1,14 +1,14 @@
-// Baton Field — the nurse's mobile PWA (brief §6.3–6.4). Big targets, one action per screen, works offline.
+// Field app — the nurse's mobile PWA (brief §6.3–6.4). Big targets, one action per screen, works offline.
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Outlet, useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Camera, Check, ChevronRight, CloudOff, LogOut, MapPin, MapPinOff, Minus, Navigation, Phone, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
-import { BLEED_STATES, distanceM, formatMinutes, OUTCOMES, PHOTO_SHARPNESS_MIN, TUBE_TYPES, type BleedState, type Outcome } from '@baton/core';
+import { BLEED_STATES, BRAND, distanceM, formatMinutes, OUTCOMES, PHOTO_SHARPNESS_MIN, TUBE_TYPES, type BleedState, type Outcome } from '@baton/core';
 import { readBarcode, sharpness } from '../quality';
 import { api, useMe } from '../api';
 import { compress, kvGet, kvSet, send, useOutbox, wipe } from '../offline';
 import { useLiveEvents } from '../live';
-import { BatonBar, BatonMark, Button, cx, ErrorText, Field, FlagPill, Input, RequisitionCheck, Select, Textarea } from '../ui';
+import { StageBar, Emblem, Button, cx, ErrorText, Field, FlagPill, Input, RequisitionCheck, Select, Textarea } from '../ui';
 
 type Pos = { lat: number; lng: number; accuracy: number; mock?: boolean };
 
@@ -79,7 +79,7 @@ export function FieldShell() {
   useLiveEvents(!!me && online);
   const nav = useNavigate();
   const qc = useQueryClient();
-  if (isLoading) return <div className="grid h-dvh place-items-center"><BatonMark size={40} className="pulse" /></div>;
+  if (isLoading) return <div className="grid h-dvh place-items-center"><Emblem size={40} className="pulse" title={BRAND.field} /></div>;
   if ((error as any)?.status === 401 || (!isLoading && !me)) return <Navigate to="/login" replace state={{ from: '/field' }} />;
   const logout = async () => {
     if (items.length && !confirm(`${items.length} action(s) have not synced yet and will be lost. Sign out anyway?`)) return;
@@ -91,7 +91,7 @@ export function FieldShell() {
   return (
     <div className="min-h-dvh bg-bg pb-10">
       <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line bg-surface/90 px-4 backdrop-blur">
-        <Link to="/field" className="flex items-center gap-2"><BatonMark size={26} /><span className="font-semibold">Baton Field</span></Link>
+        <Link to="/field" className="flex items-center gap-2"><Emblem size={26} /><span className="font-display font-bold">{BRAND.field}</span></Link>
         <div className="ml-auto flex items-center gap-2 text-xs">
           {!online && <span className="flex items-center gap-1 rounded-full bg-warn-soft px-2 py-1 font-medium text-warn"><CloudOff size={13} />Offline</span>}
           {items.length > 0 && <span className="flex items-center gap-1 rounded-full bg-brand-soft px-2 py-1 font-medium text-brand"><RefreshCw size={13} />{items.length} to sync</span>}
@@ -362,7 +362,7 @@ export function FieldRequest() {
               </div>
               {b.pendingSync ? <span className="flex items-center gap-1 text-xs text-brand"><RefreshCw size={12} />syncing</span> : <FlagPill flag={b.flag} compact />}
             </div>
-            <BatonBar intervals={b.intervals} className="mt-3" />
+            <StageBar intervals={b.intervals} className="mt-3" />
             <div className="mt-1.5 flex justify-between text-xs text-muted">
               <span>{BLEED_STATES[b.state as BleedState]}</span>
               {b.current && !b.pendingSync && <span className="num">{b.current.label} {formatMinutes(b.current.used)} / {formatMinutes(b.current.limit)}</span>}

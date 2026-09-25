@@ -26,7 +26,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const SPECS: Spec[] = [
   {
-    res: 'users', label: 'Users', intro: 'Local accounts sign in with a Baton password. AD accounts are created automatically on first sign-in from the AD group mapping.',
+    res: 'users', label: 'Users', intro: 'Local accounts sign in with a password set here. AD accounts are created automatically on first sign-in from the AD group mapping.',
     blank: { auth: 'local', role: 'cs_agent', active: true },
     cols: [
       { key: 'name', label: 'Name', list: true, required: true },
@@ -79,7 +79,7 @@ const SPECS: Spec[] = [
     { key: 'day', label: 'Date', type: 'date', list: true, required: true, createOnly: true }, { key: 'name', label: 'Name', list: true, required: true },
   ] },
   { res: 'ad_groups', label: 'AD group mapping', del: true, intro: 'Members of these AD security groups can sign in with their network login. The first match by priority sets role and department.', blank: { priority: 100, role: 'dept_responder' }, cols: [
-    { key: 'group_dn', label: 'Group DN', list: true, required: true, hint: 'e.g. CN=Baton-Analytical,OU=Groups,DC=jdj,DC=local' },
+    { key: 'group_dn', label: 'Group DN', list: true, required: true, hint: 'e.g. CN=CRM-Analytical,OU=Groups,DC=jdj,DC=local' },
     { key: 'role', label: 'Role', type: 'select', options: roles, list: true, required: true },
     { key: 'department_id', label: 'Department', type: 'select', options: depts, list: true },
     { key: 'priority', label: 'Priority', type: 'number', list: true },

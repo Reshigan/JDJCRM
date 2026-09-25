@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ScanLine, TestTubes } from 'lucide-react';
 import { BLEED_STATES, formatMinutes, patientRef, type BleedState } from '@baton/core';
 import { api, useLookups, useMe } from '../api';
-import { BatonBar, Button, cx, Empty, ErrorText, FlagPill, Input } from '../ui';
+import { StageBar, Button, cx, Empty, ErrorText, FlagPill, Input } from '../ui';
 
 const ACTION: Record<string, { step: string; label: string; dept: string }> = {
   in_transit: { step: 'receive', label: 'Accept sample in', dept: 'PRE' },
@@ -55,7 +55,7 @@ export function Samples() {
                 <div className="flex flex-wrap gap-1 text-xs text-muted"><TestTubes size={13} />{s.tubes.map((t: any) => `${t.count}× ${t.type}`).join(', ') || '—'}</div>
               </div>
               <div>
-                <BatonBar intervals={s.intervals} />
+                <StageBar intervals={s.intervals} />
                 <div className="mt-1 flex justify-between text-xs"><span>{BLEED_STATES[s.state as BleedState]}</span>{s.current && <span className={cx('num', red ? 'text-bad' : 'text-muted')}>{formatMinutes(s.current.used)} / {formatMinutes(s.current.limit)}</span>}</div>
               </div>
               <div className="flex flex-col gap-2 md:items-end">

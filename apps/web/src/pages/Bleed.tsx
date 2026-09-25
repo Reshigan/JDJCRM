@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Ban, Lock, MapPin, MapPinOff, UserRound, WifiOff } from 'lucide-react';
 import { BLEED_STATES, can, CHECKPOINTS, formatMinutes, OUTCOMES, PHOTO_SHARPNESS_MIN, sast, type BleedState } from '@baton/core';
 import { api, formValues, useLookups, useMe } from '../api';
-import { Badge, BatonBar, Button, Card, cx, ErrorText, Field, FlagPill, Modal, Select, Textarea } from '../ui';
+import { Badge, StageBar, Button, Card, cx, ErrorText, Field, FlagPill, Modal, Select, Textarea } from '../ui';
 
 const EVENT: Record<string, (d: any) => string> = {
   'bleed.requested': (d) => `Bleed requested · ${d.hospital} · ${d.patients} patient(s)`,
@@ -85,7 +85,7 @@ export function Bleed() {
           <div className="text-sm text-muted">{b.current ? <>Now: <b className="text-text">{b.current.label}</b> · {b.current.owner}</> : BLEED_STATES[state]}</div>
           <div className="text-sm">Total turnaround <span className="num ml-1 text-lg font-semibold">{b.total != null ? formatMinutes(b.total) : '—'}</span></div>
         </div>
-        <BatonBar intervals={b.intervals} labels className="mt-3" />
+        <StageBar intervals={b.intervals} labels className="mt-3" />
         <div className="-mx-5 mt-5 overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="border-y border-line bg-surface-2/60 text-left text-xs text-muted">

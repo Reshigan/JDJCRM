@@ -46,8 +46,8 @@ describe.skipIf(!url)('enhancements (API + DB)', async () => {
     app = await buildApp();
     await app.listen({ port: 0, host: '127.0.0.1' });
     base = `http://127.0.0.1:${(app.server.address() as any).port}`;
-    for (const [who, email, pw] of [['cs', 'agent', 'Baton!demo2026'], ['nurse', 'nursing', 'Baton!demo2026'], ['ana', 'analytical', 'Baton!demo2026'], ['admin', 'admin', 'ChangeMe!2026'], ['pre', 'preanalytical', 'Baton!demo2026']]) {
-      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@baton.local`, password: pw } });
+    for (const [who, email, pw] of [['cs', 'agent', 'Demo!crm2026'], ['nurse', 'nursing', 'Demo!crm2026'], ['ana', 'analytical', 'Demo!crm2026'], ['admin', 'admin', 'ChangeMe!2026'], ['pre', 'preanalytical', 'Demo!crm2026']]) {
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@crm.local`, password: pw } });
       jar[who] = String(r.headers['set-cookie']).split(';')[0];
     }
     [hospital] = await sql`select * from organisations where name = 'Demo General Hospital'`;
@@ -75,7 +75,7 @@ describe.skipIf(!url)('enhancements (API + DB)', async () => {
     expect(s.worker.healthy).toBe(false);
     expect(await watchdog()).toBe(true);
     expect(await watchdog()).toBe(false); // claimed: no repeat within the hour
-    const [{ n }] = await sql`select count(*)::int as n from notifications n join users u on u.id = n.user_id where u.role = 'admin' and n.title like 'Baton worker has stopped%'`;
+    const [{ n }] = await sql`select count(*)::int as n from notifications n join users u on u.id = n.user_id where u.role = 'admin' and n.title like 'Pelo CRM worker has stopped%'`;
     expect(n).toBe(1);
   });
 
@@ -87,7 +87,7 @@ describe.skipIf(!url)('enhancements (API + DB)', async () => {
     let text = '';
     const read = (async () => { for (;;) { const { value, done } = await reader.read(); if (done) break; text += new TextDecoder().decode(value); if (text.includes('event: notification')) break; } })();
     await new Promise((r) => setTimeout(r, 300));
-    await req('cs', 'POST', '/api/bleed-requests', { hospital_id: hospital.id, requested_by: 'W', nurse_id: (await sql`select id from users where email = 'nursing@baton.local'`)[0].id, patients: [{ patient_name: 'Streamed Patient' }] });
+    await req('cs', 'POST', '/api/bleed-requests', { hospital_id: hospital.id, requested_by: 'W', nurse_id: (await sql`select id from users where email = 'nursing@crm.local'`)[0].id, patients: [{ patient_name: 'Streamed Patient' }] });
     await Promise.race([read, new Promise((r) => setTimeout(r, 3000))]);
     ctrl.abort();
     expect(text).toContain('event: change');
@@ -141,7 +141,7 @@ describe.skipIf(!url)('enhancements (API + DB)', async () => {
   });
 
   it('stores photo sharpness measured on the phone', async () => {
-    const r = (await req('cs', 'POST', '/api/bleed-requests', { hospital_id: hospital.id, requested_by: 'W', nurse_id: (await sql`select id from users where email = 'nursing@baton.local'`)[0].id, patients: [{ patient_name: 'Sharp Patient' }] })).json();
+    const r = (await req('cs', 'POST', '/api/bleed-requests', { hospital_id: hospital.id, requested_by: 'W', nurse_id: (await sql`select id from users where email = 'nursing@crm.local'`)[0].id, patients: [{ patient_name: 'Sharp Patient' }] })).json();
     await req('nurse', 'POST', `/api/bleed-requests/${r.id}/arrive`, { lat: hospital.lat, lng: hospital.lng, accuracy: 5 });
     const B = 'b', f: Record<string, string> = { outcome: 'successful', patient_name: 'Sharp Patient', folder_no: 'F1', ward: '1', bed: '2', tubes: '[{"type":"EDTA (purple)","count":1}]', requisition_sharpness: '12', sticker_sharpness: '240' };
     const parts = Object.entries(f).map(([k, v]) => `--${B}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`).join('')

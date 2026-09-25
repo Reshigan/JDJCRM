@@ -26,7 +26,7 @@ process.env.NODE_ENV = 'test';
 process.env.SMTP_HOST = 'localhost';
 process.env.SMTP_PORT = String(PORT);
 process.env.SMTP_CA_FILE = `${dir}/ca.pem`;
-process.env.APP_URL = 'https://baton.jdj.local';
+process.env.APP_URL = 'https://crm.jdj.local';
 
 describe.skipIf(!url || !openssl)('e-mail delivery (SMTP + STARTTLS + DB)', async () => {
   const { sql } = await import('../src/db');
@@ -57,7 +57,7 @@ describe.skipIf(!url || !openssl)('e-mail delivery (SMTP + STARTTLS + DB)', asyn
   });
 
   it('a routed query e-mails the department over STARTTLS with a title and link, never the details', async () => {
-    const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'agent@baton.local', password: 'Baton!demo2026' } });
+    const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'agent@crm.local', password: 'Demo!crm2026' } });
     const cookie = String(r.headers['set-cookie']).split(';')[0];
     const lk = (await app.inject({ method: 'GET', url: '/api/lookups', headers: { cookie } })).json();
     const cat = lk.categories.find((c: any) => c.name.startsWith('Sample not received'));
@@ -70,14 +70,14 @@ describe.skipIf(!url || !openssl)('e-mail delivery (SMTP + STARTTLS + DB)', asyn
     expect(inbox.length).toBe(1);
     const m = inbox[0];
     expect(m.secure).toBe(true); // upgraded with STARTTLS, trusting the relay via SMTP_CA_FILE
-    expect(m.to).toContain('preanalytical@baton.local');
+    expect(m.to).toContain('preanalytical@crm.local');
     const cut = m.raw.indexOf('\r\n\r\n');
     const head = m.raw.slice(0, cut), body = m.raw.slice(cut + 4);
     const subject = /^Subject: (.*(?:\r\n .*)*)/m.exec(head)![1].replace(/\r\n /g, '')
       .replace(/=\?UTF-8\?Q\?(.*?)\?=/g, (_, q) => Buffer.from(q.replace(/_/g, ' ').replace(/=([0-9A-F]{2})/g, (_x: string, h: string) => String.fromCharCode(parseInt(h, 16))), 'latin1').toString('utf8'));
     expect(subject).toBe('QRY-202609-0001 · New high query · Sample not received / sample lost'.replace('202609', subject.slice(4, 10)));
     const text = body.replace(/=\r?\n/g, ''); // quoted-printable soft breaks
-    expect(text).toContain(`https://baton.jdj.local/tickets/${t.json().id}`);
+    expect(text).toContain(`https://crm.jdj.local/tickets/${t.json().id}`);
     expect(m.raw).not.toMatch(/Johanna|Secret|lost in transit/);
   });
 });

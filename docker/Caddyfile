@@ -1,6 +1,6 @@
 # SITE_ADDRESS: a hostname ending in .local/.internal gets a certificate from Caddy's internal CA
 # (distribute its root to devices). To use your own certificate, add: tls /certs/cert.pem /certs/key.pem
-{$SITE_ADDRESS:baton.local} {
+{$SITE_ADDRESS:crm.local} {
 	encode zstd gzip
 
 	header {

@@ -5,7 +5,7 @@ import { signIn } from './helpers';
 test.skip(!process.env.E2E_AFTER_OPS, 'post-operations check: set E2E_AFTER_OPS=1 after a restore and key rotation');
 
 test('after restore and key rotation: records, encrypted photos and the audit chain are intact', async ({ browser }) => {
-  const cs = await signIn(browser, 'agent@baton.local');
+  const cs = await signIn(browser, 'agent@crm.local');
   const bleeds = await (await cs.request.get('/api/bleeds?scope=all&limit=200')).json();
   expect(bleeds.length).toBeGreaterThan(5);
   let photo: string | undefined;
@@ -18,7 +18,7 @@ test('after restore and key rotation: records, encrypted photos and the audit ch
   expect(r.status()).toBe(200);
   expect((await r.body()).subarray(0, 4).toString('hex')).toMatch(/^(89504e47|ffd8ff)/); // decrypts to a real PNG / JPEG with the new key
 
-  const admin = await signIn(browser, 'admin@baton.local');
+  const admin = await signIn(browser, 'admin@crm.local');
   const s = await (await admin.request.get('/api/system/status')).json();
   expect(s.database.audit_intact).toBe(true);
   const audit = await (await admin.request.get('/api/admin-audit')).json();

@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { api, formValues } from '../api';
-import { BatonMark, Button, ErrorText, Field, Input } from '../ui';
+import { BRAND } from '@baton/core';
+import { Button, ErrorText, Field, Input, Wordmark } from '../ui';
 
 type Step = 'password' | 'verify' | 'setup';
 
@@ -32,18 +33,15 @@ export function Login() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <div className="relative hidden overflow-hidden bg-[#0E1726] p-12 text-white lg:flex lg:flex-col">
-        <div className="flex items-center gap-3">
-          <BatonMark size={36} />
-          <span className="text-lg font-semibold tracking-tight">Baton</span>
-        </div>
+      <div className="canopy relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col">
+        <Wordmark size={28} dark />
         <div className="mt-auto max-w-lg">
-          <h1 className="text-4xl leading-tight font-semibold tracking-tight">Every handover, owned.</h1>
+          <h1 className="text-4xl leading-tight font-bold tracking-tight">{BRAND.tagline}</h1>
           <p className="mt-4 text-[15px] leading-relaxed text-white/65">
             Every query and every hospital bleed gets a ticket, a named owner at each stage and a time stamp at each handover, with a clock that tells you before anything goes red.
           </p>
           <div className="mt-10 flex gap-1.5" aria-hidden>
-            {['#4ADE80', '#4ADE80', '#4ADE80', '#FBBF24', '#7482FF', '#7482FF'].map((c, i) => (
+            {['#5BD0A0', '#5BD0A0', '#5BD0A0', '#FFC53D', '#FFFFFF', '#FFFFFF'].map((c, i) => (
               <span key={i} className={i === 3 ? 'pulse h-2 flex-1 rounded-full' : 'h-2 flex-1 rounded-full'} style={{ background: c, opacity: i > 3 ? 0.3 : 1 }} />
             ))}
           </div>
@@ -55,7 +53,7 @@ export function Login() {
 
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-2.5 lg:hidden"><BatonMark size={32} /><span className="text-lg font-semibold">Baton</span></div>
+          <div className="mb-8 lg:hidden"><Wordmark size={26} /></div>
 
           {step === 'password' && (
             <form
@@ -71,7 +69,7 @@ export function Login() {
             >
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
-                <p className="mt-1 text-sm text-muted">Use your network (AD) login or your Baton account.</p>
+                <p className="mt-1 text-sm text-muted">Use your network (AD) login or your {BRAND.product} account.</p>
               </div>
               <Field label="E-mail or username"><Input name="username" autoComplete="username" autoFocus required /></Field>
               <Field label="Password"><Input name="password" type="password" autoComplete="current-password" required /></Field>
@@ -103,7 +101,7 @@ export function Login() {
               ) : (
                 <>
                   <h2 className="text-2xl font-semibold tracking-tight">Enter your code</h2>
-                  <p className="text-sm text-muted">Open your authenticator app and enter the 6-digit code for Baton.</p>
+                  <p className="text-sm text-muted">Open your authenticator app and enter the 6-digit code for {BRAND.product}.</p>
                 </>
               )}
               <Field label="Code"><Input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,8}" autoFocus required className="num text-lg tracking-[0.3em]" /></Field>

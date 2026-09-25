@@ -27,7 +27,7 @@ await sql`insert into contacts (name, type, organisation_id, phone)
 // One ticket every 5 minutes going back ~a year; 1 in 300 still open.
 await sql`
   with o as (select array_agg(id order by id) a from contacts), c as (select array_agg(id order by id) a from categories),
-       s as (select array_agg(id order by id) a from sites), u as (select id from users where email = 'agent@baton.local')
+       s as (select array_agg(id order by id) a from sites), u as (select id from users where email = 'agent@crm.local')
   insert into tickets (number, state, channel, complainant_type, complainant_name, contact_id, organisation_id, contact_phone, patient_name, requisition_no,
     site_id, category_id, priority, description, logged_by, created_at, closure_reason, root_cause, closed_at, closed_by)
   select 'LT-' || g, x.state, 'telephone', 'doctor', 'Dr Load ' || (g % 5000), o.a[1 + g % 5000], null, '012 555 0100', 'Patient ' || g, 'RQ-LT-' || g,
@@ -46,7 +46,7 @@ await sql`
   from tickets t join categories c on c.id = t.category_id where t.number like 'LT-%'`;
 // One bleed every 25 minutes; checkpoints only up to now; 1 in 100 ended but not yet closed.
 await sql`
-  with h as (select array_agg(id order by id) a from organisations where kind = 'hospital'), u as (select id from users where email = 'agent@baton.local')
+  with h as (select array_agg(id order by id) a from organisations where kind = 'hospital'), u as (select id from users where email = 'agent@crm.local')
   insert into bleed_requests (number, hospital_id, requested_by, logged_by, created_at, arrived_at)
   select 'LTR-' || g, h.a[1 + g % cardinality(h.a)], 'Ward', u.id, now() - g * interval '25 minutes',
     nullif(least(now() - g * interval '25 minutes' + interval '20 minutes', now()), now())
@@ -68,7 +68,7 @@ await sql`analyze`;
 console.log(`generated ${N} queries and ${M} bleeds in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 
 const app = await buildApp();
-const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'supervisor@baton.local', password: 'Baton!demo2026' } });
+const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'supervisor@crm.local', password: 'Demo!crm2026' } });
 const cookie = String(login.headers['set-cookie']).split(';')[0];
 const day = (d: number) => new Date(Date.now() + 2 * 3_600_000 - d * 86_400_000).toISOString().slice(0, 10);
 

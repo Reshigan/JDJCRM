@@ -43,7 +43,7 @@ export async function seed(demo: boolean, tickets = demo) {
   for (const [day, name] of HOLIDAYS) await sql`insert into holidays values (${day}, ${name}) on conflict do nothing`;
   await sql`insert into sites (code, name, region) values ('MAIN', 'Main Laboratory', 'Head Office') on conflict do nothing`;
 
-  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@baton.local';
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@crm.local';
   const [{ n }] = await sql`select count(*)::int as n from users where role = 'admin'`;
   if (!n) {
     const pw = process.env.ADMIN_PASSWORD ?? 'ChangeMe!2026';
@@ -83,25 +83,25 @@ async function seedDemo(dept: Record<string, number>, tickets: boolean) {
     for (const [kind, name, lat, lng, radius_m, s] of orgs)
       await sql`insert into organisations (kind, name, lat, lng, radius_m, site_id) values (${kind}, ${name}, ${lat}, ${lng}, ${radius_m}, ${site[s]})`;
 
-  const pw = hashPassword('Baton!demo2026');
+  const pw = hashPassword('Demo!crm2026');
   const users = [
-    ['agent@baton.local', 'Thandi Mokoena', 'cs_agent', 'CS'],
-    ['supervisor@baton.local', 'Johan van Wyk', 'cs_supervisor', 'CS'],
-    ['analytical@baton.local', 'Priya Govender', 'dept_responder', 'ANA'],
-    ['preanalytical@baton.local', 'Sipho Dlamini', 'dept_responder', 'PRE'],
-    ['logistics@baton.local', 'Kagiso Molefe', 'dept_responder', 'LOG'],
-    ['nursing@baton.local', 'Sister Anne Botha', 'dept_responder', 'NUR'],
-    ['manager.pre@baton.local', 'Lerato Khumalo', 'dept_manager', 'PRE'],
-    ['exec@baton.local', 'Dr Ravi Pillay', 'management', null],
+    ['agent@crm.local', 'Thandi Mokoena', 'cs_agent', 'CS'],
+    ['supervisor@crm.local', 'Johan van Wyk', 'cs_supervisor', 'CS'],
+    ['analytical@crm.local', 'Priya Govender', 'dept_responder', 'ANA'],
+    ['preanalytical@crm.local', 'Sipho Dlamini', 'dept_responder', 'PRE'],
+    ['logistics@crm.local', 'Kagiso Molefe', 'dept_responder', 'LOG'],
+    ['nursing@crm.local', 'Sister Anne Botha', 'dept_responder', 'NUR'],
+    ['manager.pre@crm.local', 'Lerato Khumalo', 'dept_manager', 'PRE'],
+    ['exec@crm.local', 'Dr Ravi Pillay', 'management', null],
   ] as const;
   for (const [email, name, role, d] of users)
     await sql`insert into users (email, name, role, department_id, password_hash)
       values (${email}, ${name}, ${role}, ${d ? dept[d] : null}, ${pw}) on conflict (email) do nothing`;
   await sql`insert into users (email, name, role, department_id, password_hash)
-    values ('nurse2@baton.local', 'Sister Zanele Nkosi', 'dept_responder', ${dept.NUR}, ${pw}) on conflict (email) do nothing`;
-  await sql`update organisations set nurse_id = (select id from users where email = 'nursing@baton.local') where kind = 'hospital' and nurse_id is null and name <> 'Demo Coastal Hospital'`;
-  await sql`update organisations set nurse_id = (select id from users where email = 'nurse2@baton.local') where name = 'Demo Coastal Hospital' and nurse_id is null`;
-  console.log('demo users ready — password: Baton!demo2026');
+    values ('nurse2@crm.local', 'Sister Zanele Nkosi', 'dept_responder', ${dept.NUR}, ${pw}) on conflict (email) do nothing`;
+  await sql`update organisations set nurse_id = (select id from users where email = 'nursing@crm.local') where kind = 'hospital' and nurse_id is null and name <> 'Demo Coastal Hospital'`;
+  await sql`update organisations set nurse_id = (select id from users where email = 'nurse2@crm.local') where name = 'Demo Coastal Hospital' and nurse_id is null`;
+  console.log('demo users ready — password: Demo!crm2026');
   if (tickets) await demoTickets();
 }
 
@@ -115,16 +115,16 @@ async function demoTickets() {
   const jar: Record<string, string> = {};
   const as = async (email: string) => {
     if (!jar[email]) {
-      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: email, password: 'Baton!demo2026' } });
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: email, password: 'Demo!crm2026' } });
       jar[email] = String(r.headers['set-cookie']).split(';')[0];
     }
     return (url: string, payload?: object) => app.inject({ method: payload ? 'POST' : 'GET', url, payload, headers: { cookie: jar[email] } }).then((r) => r.json());
   };
-  const cs = await as('agent@baton.local');
+  const cs = await as('agent@crm.local');
   const lk = await cs('/api/lookups');
   const cat = (s: string) => lk.categories.find((c: any) => c.name.startsWith(s)).id;
   const org = (s: string) => lk.organisations.find((o: any) => o.name.startsWith(s));
-  const byDept: Record<string, string> = { ANA: 'analytical@baton.local', PRE: 'preanalytical@baton.local', LOG: 'logistics@baton.local', NUR: 'nursing@baton.local', CS: 'agent@baton.local' };
+  const byDept: Record<string, string> = { ANA: 'analytical@crm.local', PRE: 'preanalytical@crm.local', LOG: 'logistics@crm.local', NUR: 'nursing@crm.local', CS: 'agent@crm.local' };
 
   // [category, org, complainant, type, priority, description, hoursAgo, progress]
   const demo: [string, string, string, string, string, string, number, 'new' | 'ack' | 'responded' | 'closed'][] = [
@@ -149,7 +149,7 @@ async function demoTickets() {
     const t = await cs(`/api/tickets/${id}`);
     if (progress === 'new') continue;
     for (const a of t.assignments) {
-      const d = await as(byDept[a.department_code] ?? 'agent@baton.local');
+      const d = await as(byDept[a.department_code] ?? 'agent@crm.local');
       await d(`/api/tickets/${id}/actions`, { action: 'acknowledge', assignment_id: a.id });
       if (progress !== 'ack')
         await d(`/api/tickets/${id}/actions`, { action: 'respond', assignment_id: a.id, findings: 'Investigated and confirmed.', corrective_action: 'Corrected and staff briefed.', breach_reason: 'Backlog after system downtime' });
@@ -188,13 +188,13 @@ function demoPng(w = 480, h = 320, hue = 0) {
 }
 
 async function demoBleeds(app: any, as: (email: string) => Promise<(url: string, payload?: object) => Promise<any>>) {
-  const cs = await as('agent@baton.local');
+  const cs = await as('agent@crm.local');
   const lk = await cs('/api/lookups');
   const hosp = (n: string) => lk.organisations.find((o: any) => o.name === n);
   const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
   const jar: Record<string, string> = {};
   const cookie = async (email: string) => {
-    jar[email] ??= String((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: email, password: 'Baton!demo2026' } })).headers['set-cookie']).split(';')[0];
+    jar[email] ??= String((await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: email, password: 'Demo!crm2026' } })).headers['set-cookie']).split(';')[0];
     return jar[email];
   };
   const post = async (email: string, url: string, payload: object) => app.inject({ method: 'POST', url, payload, headers: { cookie: await cookie(email) } });
@@ -210,12 +210,12 @@ async function demoBleeds(app: any, as: (email: string) => Promise<(url: string,
   // [hospital, nurse, patients, minutes since call, progress minutes: arrive, capture, receive, lab, release, file]
   type Plan = { h: string; nurse: string; patients: string[]; opened: number; arrive?: number; capture?: number; receive?: number; lab?: number; release?: number; file?: number; override?: string; outcome?: string };
   const plans: Plan[] = [
-    { h: 'Demo General Hospital', nurse: 'nursing@baton.local', patients: ['Maria Smith', 'Thabo Nkosi', 'Anna Pretorius'], opened: 25 },
-    { h: 'Demo Private Clinic', nurse: 'nursing@baton.local', patients: ['Sarah Jacobs'], opened: 180, arrive: 170, capture: 155, receive: 60, lab: 45 },
-    { h: 'Demo Coastal Hospital', nurse: 'nurse2@baton.local', patients: ['Peter Adams', 'Lindiwe Zulu'], opened: 300, arrive: 280, capture: 260, receive: 120, lab: 100, release: 30 },
-    { h: 'Demo General Hospital', nurse: 'nursing@baton.local', patients: ['David Botha'], opened: 60, arrive: 35, override: 'Main campus block C, GPS drifting' },
-    { h: 'Demo Private Clinic', nurse: 'nursing@baton.local', patients: ['Grace Molefe'], opened: 1560, arrive: 1530, capture: 1510, receive: 1450, lab: 1420, release: 1260, file: 1200 },
-    { h: 'Demo General Hospital', nurse: 'nursing@baton.local', patients: ['Joseph Mokoena'], opened: 90, arrive: 70, capture: 60, outcome: 'patient_refused' },
+    { h: 'Demo General Hospital', nurse: 'nursing@crm.local', patients: ['Maria Smith', 'Thabo Nkosi', 'Anna Pretorius'], opened: 25 },
+    { h: 'Demo Private Clinic', nurse: 'nursing@crm.local', patients: ['Sarah Jacobs'], opened: 180, arrive: 170, capture: 155, receive: 60, lab: 45 },
+    { h: 'Demo Coastal Hospital', nurse: 'nurse2@crm.local', patients: ['Peter Adams', 'Lindiwe Zulu'], opened: 300, arrive: 280, capture: 260, receive: 120, lab: 100, release: 30 },
+    { h: 'Demo General Hospital', nurse: 'nursing@crm.local', patients: ['David Botha'], opened: 60, arrive: 35, override: 'Main campus block C, GPS drifting' },
+    { h: 'Demo Private Clinic', nurse: 'nursing@crm.local', patients: ['Grace Molefe'], opened: 1560, arrive: 1530, capture: 1510, receive: 1450, lab: 1420, release: 1260, file: 1200 },
+    { h: 'Demo General Hospital', nurse: 'nursing@crm.local', patients: ['Joseph Mokoena'], opened: 90, arrive: 70, capture: 60, outcome: 'patient_refused' },
   ];
   const H = { lat: 0, lng: 0 };
   for (const p of plans) {
@@ -236,14 +236,14 @@ async function demoBleeds(app: any, as: (email: string) => Promise<(url: string,
         ? { outcome: p.outcome, outcome_reason: 'Patient declined; ward informed', device_time: ago(p.capture) }
         : { outcome: 'successful', patient_name: b.patient_name, folder_no: b.folder_no, ward: b.ward, bed: b.bed, requisition_no: `RQ-${400000 + Math.floor(Math.random() * 99999)}`, tubes: JSON.stringify([{ type: 'EDTA (purple)', count: 1 }, { type: 'SST (gold)', count: 2 }]), device_time: ago(p.capture), breach_reason: breach });
       if (cr.statusCode !== 200) throw new Error(`demo capture failed: ${cr.body}`);
-      for (const [step, who, min, col] of [['receive', 'preanalytical@baton.local', p.receive, 'received_at'], ['lab_accept', 'analytical@baton.local', p.lab, 'lab_accepted_at'], ['release', 'analytical@baton.local', p.release, 'released_at']] as const) {
+      for (const [step, who, min, col] of [['receive', 'preanalytical@crm.local', p.receive, 'received_at'], ['lab_accept', 'analytical@crm.local', p.lab, 'lab_accepted_at'], ['release', 'analytical@crm.local', p.release, 'released_at']] as const) {
         if (min == null) break;
         await post(who, `/api/bleeds/${id}/step`, { step, breach_reason: breach });
         await sql`update bleeds set ${sql(col)} = ${ago(min)} where id = ${id}`;
       }
       if (p.file != null) {
         await post(p.nurse, '/api/bleeds/file', { bleed_ids: [id], ...at(hospital), accuracy: 11, device_time: ago(p.file), breach_reason: breach });
-        await post('agent@baton.local', `/api/bleeds/${id}/close`, {});
+        await post('agent@crm.local', `/api/bleeds/${id}/close`, {});
       }
     }
   }

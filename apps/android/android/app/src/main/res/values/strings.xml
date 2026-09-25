@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Baton Field</string>
-    <string name="title_activity_main">Baton Field</string>
+    <string name="app_name">Pelo CRM Field</string>
+    <string name="title_activity_main">Pelo CRM Field</string>
     <string name="package_name">za.co.jdj.baton</string>
     <string name="custom_url_scheme">za.co.jdj.baton</string>
 </resources>

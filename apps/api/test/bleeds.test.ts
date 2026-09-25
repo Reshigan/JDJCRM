@@ -43,7 +43,7 @@ describe.skipIf(!url)('hospital bleed lifecycle (API + DB)', async () => {
     await seed(true, false);
     app = await buildApp();
     for (const [who, email] of Object.entries({ cs: 'agent', nurse: 'nursing', nurse2: 'nurse2', pre: 'preanalytical', ana: 'analytical' })) {
-      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@baton.local`, password: 'Baton!demo2026' } });
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@crm.local`, password: 'Demo!crm2026' } });
       jar[who] = String(r.headers['set-cookie']).split(';')[0];
     }
   });
@@ -150,7 +150,7 @@ describe.skipIf(!url)('hospital bleed lifecycle (API + DB)', async () => {
 
   it('closing an active bleed is impossible even via SQL; audit chain intact', async () => {
     const r = (await as('cs').post('/api/bleed-requests', { hospital_id: hospitalId, requested_by: 'ICU', patients: [{ patient_name: 'B Patient' }] })).json();
-    const [agent] = await sql`select id from users where email = 'agent@baton.local'`;
+    const [agent] = await sql`select id from users where email = 'agent@crm.local'`;
     await expect(sql`update bleeds set closed_at = now(), closed_by = ${agent.id} where request_id = ${r.id}`).rejects.toThrow(/not ended/);
     const [{ broken }] = await sql`select audit_verify() as broken`;
     expect(broken).toBeNull();

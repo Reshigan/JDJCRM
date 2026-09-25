@@ -28,7 +28,7 @@ describe.skipIf(!url)('route guard', async () => {
     await sql`update settings set value = '["cs_agent"]' where key = 'mfa_enforced_roles'`;
     app = await buildApp();
     await app.ready();
-    const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'agent@baton.local', password: 'Baton!demo2026' } });
+    const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'agent@crm.local', password: 'Demo!crm2026' } });
     expect(r.json().mfa).toBe('setup');
     pending = String(r.headers['set-cookie']).split(';')[0];
   });

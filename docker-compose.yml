@@ -6,19 +6,19 @@ x-api-env: &api-env
   PGPASSWORD_FILE: /run/secrets/db_password
   MASTER_KEY_FILE: /run/secrets/master_key
   DATA_DIR: /data
-  APP_URL: ${APP_URL:-https://baton.local}
+  APP_URL: ${APP_URL:-https://crm.local}
   SMTP_HOST: ${SMTP_HOST:-}
   SMTP_PORT: ${SMTP_PORT:-25}
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASS: ${SMTP_PASS:-}
-  SMTP_FROM: ${SMTP_FROM:-Baton <baton@jdj.local>}
+  SMTP_FROM: ${SMTP_FROM:-Pelo CRM <crm@jdj.local>}
   SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
   SMTP_CA_FILE: ${SMTP_CA_FILE:-}
   LDAP_URL: ${LDAP_URL:-}
   LDAP_BASE_DN: ${LDAP_BASE_DN:-}
   LDAP_UPN_SUFFIX: ${LDAP_UPN_SUFFIX:-}
   LDAP_CA_FILE: ${LDAP_CA_FILE:-}
-  ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@baton.local}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@crm.local}
   LIS_WEBHOOK_SECRET: ${LIS_WEBHOOK_SECRET:-}
   LIS_VALIDATE_URL: ${LIS_VALIDATE_URL:-}
   LIS_TOKEN: ${LIS_TOKEN:-}
@@ -77,7 +77,7 @@ services:
     image: baton-web:${BATON_VERSION:-latest}
     restart: unless-stopped
     environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:-baton.local}
+      SITE_ADDRESS: ${SITE_ADDRESS:-crm.local}
     ports: ["80:80", "443:443"]
     volumes: [caddy_data:/data, caddy_config:/config]
     depends_on: [api]

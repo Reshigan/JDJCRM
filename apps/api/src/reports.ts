@@ -1,6 +1,6 @@
 // Excel export of any analytics view + scheduled daily / monthly e-mail summaries (brief §7).
 import ExcelJS from 'exceljs';
-import { bleedIntervals, bleedState, BLEED_STATES, formatMinutes, INTERVALS, patientRef, QUERY_STATES, sast, SAST_OFFSET } from '@baton/core';
+import { bleedIntervals, BRAND, bleedState, BLEED_STATES, formatMinutes, INTERVALS, patientRef, QUERY_STATES, sast, SAST_OFFSET } from '@baton/core';
 import { analytics, bleedRows, queryRows, type Filters } from './analytics';
 import { audit, sql } from './db';
 import { sendMail } from './notify';
@@ -12,7 +12,7 @@ const mins = (m: number | null | undefined) => (m == null ? '' : Math.round(m));
 export async function workbook(f: Filters) {
   const [a, bleeds, queries, cfg] = await Promise.all([analytics(f), bleedRows(sql, f), queryRows(sql, f), bleedConfig(sql)]);
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Baton';
+  wb.creator = BRAND.product;
   wb.created = new Date();
   const sheet = (name: string, cols: [string, number][], rows: unknown[][]) => {
     const ws = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -75,7 +75,7 @@ function summaryText(title: string, a: Awaited<ReturnType<typeof analytics>>) {
 
 export async function sendReport(kind: 'daily' | 'monthly', f: Filters, to: string[]) {
   const [a, ins] = await Promise.all([analytics(f), insights()]);
-  const title = kind === 'daily' ? 'Baton daily operations summary' : 'Baton monthly management summary';
+  const title = `${BRAND.product} ${kind === 'daily' ? 'daily operations summary' : 'monthly management summary'}`;
   await sendMail(to, `${title} · ${f.from}${kind === 'monthly' ? ` to ${f.to}` : ''}`, summaryText(title, a) + (ins.length ? `\n\nINSIGHTS\n${ins.map((i) => `  ${i.tone === 'good' ? '▲' : '!'} ${i.title}`).join('\n')}` : ''), [
     { filename: `baton-${kind}-${f.from}.xlsx`, content: await workbook(f) },
   ]);

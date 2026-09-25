@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, BookUser, Droplet, Gauge, Route, Inbox, LogOut, Moon, Plus, ScanLine, Search, Settings2, Smartphone, Sun, UserRound } from 'lucide-react';
-import { can, ROLES } from '@baton/core';
+import { BRAND, can, ROLES } from '@baton/core';
 import { api, useLookups, useMe } from './api';
 import { useLiveEvents } from './live';
-import { ago, BatonMark, Button, cx } from './ui';
+import { ago, Button, cx, Emblem, Wordmark } from './ui';
 
 function useTheme() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -77,7 +77,7 @@ export function Shell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [me, nav]);
 
-  if (isLoading) return <div className="grid h-dvh place-items-center"><BatonMark size={40} className="pulse" /></div>;
+  if (isLoading) return <div className="grid h-dvh place-items-center"><Emblem size={40} className="pulse" title={BRAND.product} /></div>;
   if (error || !me || !me.mfa_ok) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   if (me.role === 'admin' && !loc.pathname.startsWith('/admin') && loc.pathname !== '/account') return <Navigate to="/admin" replace />;
   const dept = lk?.departments.find((d) => d.id === me.department_id)?.code;
@@ -89,17 +89,17 @@ export function Shell() {
     nav('/login');
   };
   const link = ({ isActive }: { isActive: boolean }) =>
-    cx('flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium', isActive ? 'bg-brand-soft text-brand' : 'text-muted hover:bg-surface-2 hover:text-text');
+    cx('relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium', isActive
+      ? 'bg-white text-[#0E4D3A] after:absolute after:right-3 after:h-1 after:w-1 after:rounded-full after:bg-[#FF5A4D]'
+      : 'text-white/75 hover:bg-white/10 hover:text-white');
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface px-3 py-4 md:flex">
-        <Link to="/" className="mb-6 flex items-center gap-2.5 px-2">
-          <BatonMark />
-          <span>
-            <span className="block text-[15px] leading-tight font-semibold tracking-tight">Baton</span>
-            <span className="block text-[11px] text-muted">Every handover, owned.</span>
-          </span>
+      {/* The Pelo canopy, as on every Pelo staff surface: dark forest crown, white type, coral heartbeat on the active item. */}
+      <aside className="canopy sticky top-0 hidden h-dvh w-60 shrink-0 flex-col px-3 py-4 text-white md:flex">
+        <Link to="/" className="mb-6 block px-2" aria-label={`${BRAND.product} home`}>
+          <Wordmark size={22} dark />
+          <span className="mt-1 block text-[11px] text-white/60">{BRAND.tagline}</span>
         </Link>
         <nav className="flex flex-col gap-1">
           {(can(me.role, 'dashboard.view') || me.role === 'dept_manager') && <NavLink to="/dashboard" className={link}><Gauge size={17} />Dashboard</NavLink>}
@@ -115,11 +115,11 @@ export function Shell() {
           {dept === 'NUR' && <NavLink to="/field" className={link}><Smartphone size={17} />Field app</NavLink>}
           {can(me.role, 'admin.configure') && <NavLink to="/admin" className={link}><Settings2 size={17} />Administration</NavLink>}
         </nav>
-        <div className="mt-auto border-t border-line pt-3">
+        <div className="mt-auto border-t border-white/10 pt-3">
           <NavLink to="/account" className={link}>
             <UserRound size={17} />
             <span className="min-w-0">
-              <span className="block truncate text-text">{me.name}</span>
+              <span className="block truncate">{me.name}</span>
               <span className="block truncate text-[11px] font-normal">{ROLES[me.role]}</span>
             </span>
           </NavLink>
@@ -128,7 +128,7 @@ export function Shell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line bg-bg/85 px-4 backdrop-blur md:px-6">
-          <Link to="/" className="md:hidden"><BatonMark size={26} /></Link>
+          <Link to="/" className="md:hidden" aria-label={`${BRAND.product} home`}><Emblem size={26} /></Link>
           {me.role !== 'admin' && (
             <form
               className="relative max-w-md min-w-0 flex-1"

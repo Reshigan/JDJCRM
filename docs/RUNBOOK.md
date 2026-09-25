@@ -1,10 +1,10 @@
-# Baton operations runbook
+# Pelo CRM operations runbook
 
 Everything here runs on the Docker host, from the repository directory. Times are SAST.
 
 ## First install
 
-1. Set up DNS (`baton.jdj.local`) and open ports 80/443 to the server.
+1. Set up DNS (`crm.jdj.local`) and open ports 80/443 to the server.
 2. Copy the environment file and fill it in:
 
    ```sh
@@ -90,7 +90,7 @@ Migrations run automatically when the API starts, and each runs in a transaction
 
 | Symptom | Action |
 |---|---|
-| Alert "Baton worker has stopped" | Escalations, reports and retention are paused. Run `docker compose ps worker` and `docker compose logs --tail 100 worker`, then `docker compose up -d worker`. The alert repeats at most hourly until the worker's heartbeat is back. |
+| Alert "Pelo CRM worker has stopped" | Escalations, reports and retention are paused. Run `docker compose ps worker` and `docker compose logs --tail 100 worker`, then `docker compose up -d worker`. The alert repeats at most hourly until the worker's heartbeat is back. |
 | A user is locked out | Administration → Users → edit → **Unlock account**. It unlocks by itself after 15 minutes. |
 | A user lost their phone (2FA) | Administration → Users → edit → **Reset two-factor**. Their sessions end, and they enrol again at their next sign-in. |
 | "Chain broken at entry #N" on the audit page | Someone altered the database directly. Preserve the host, restore the last good backup elsewhere and compare entries around #N, then report under your POPIA breach procedure. |
@@ -104,7 +104,7 @@ Migrations run automatically when the API starts, and each runs in a transaction
 ## POPIA
 
 - **Access requests (s23).**
-  1. A Client Services supervisor or a manager searches for the person in Baton.
+  1. A Client Services supervisor or a manager searches for the person in Pelo CRM.
   2. **POPIA access report** downloads every record held about them, and everyone who viewed those records.
   3. The export itself is audited.
 - **Minimisation.**

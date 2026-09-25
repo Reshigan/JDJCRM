@@ -1,6 +1,6 @@
-# Baton
+# Pelo CRM
 
-**Every handover, owned.** Query and hospital-bleed ticketing for JDJ. It runs on-premise with Docker.
+**Every handover, cared for.** Query and hospital-bleed ticketing for JDJ, in the Pelo family: the same brand, emblem and design tokens as the Pelo console. It runs on-premise with Docker.
 
 Every query and every bleed gets a ticket number, a named owner at each stage and a time stamp at each handover. Each clock warns before it goes red.
 
@@ -77,9 +77,24 @@ Every query and every bleed gets a ticket number, a named owner at each stage an
 - **Scheduled e-mails.** A daily operations summary (yesterday) and a monthly management summary (last month), each with the workbook attached. Set the distribution lists in Admin → Settings (`report_daily_recipients`, `report_monthly_recipients`, `report_send_hour`, SAST). Each report is sent exactly once, even with several workers.
 - **Full search** (header, `/` key) across queries and bleeds: ticket number, patient, requisition, hospital or complainant, within the caller's scope.
 
+## Brand
+
+Pelo CRM uses the Pelo design system from `supportgonxt/Pelo` (`@pelo/ui`):
+
+- **Emblem and wordmark.** A heart with an ECG line through it; "Pel" plus a coral "o".
+- **Palette.**
+  - Surfaces: Paper `#F4F8F5`, Mist `#EEF4F0`.
+  - Text: Ink `#112019`.
+  - Brand: Forest `#0E4D3A`.
+  - Charts: Leaf `#16A06A`, validated on light and dark surfaces.
+  - Accent and focus ring: Coral.
+- **Fonts.** Bricolage Grotesque (headings), Plus Jakarta Sans (text), JetBrains Mono (numbers). They are self-hosted because the CSP and air-gapped sites rule out Google Fonts.
+- **Canopy.** The dark forest sidebar and sign-in panel match the Pelo console's command bar.
+- **The name is not trademark-cleared yet** (Pelo ADR 0003). It lives only in `BRAND` (`packages/core/src/brand.ts`) and the web `Wordmark`, so a fallback name is a two-file change. Hostnames, domains, e-mail addresses, package names, the database and the `X-Baton-*` integration headers deliberately carry no brand.
+
 ## On-premise install
 
-Requirements: Docker Engine 24+ with Compose v2, and a DNS name for the server (e.g. `baton.jdj.local`).
+Requirements: Docker Engine 24+ with Compose v2, and a DNS name for the server (e.g. `crm.jdj.local`).
 
 ```sh
 cp .env.example .env        # set SITE_ADDRESS, APP_URL, ADMIN_PASSWORD, SMTP_*, LDAP_*
@@ -127,17 +142,17 @@ TEST_DATABASE_URL=postgres://baton@127.0.0.1:5433/baton_test npm test
 npm run e2e                            # browser journeys against the running dev servers
 ```
 
-Demo accounts (password `Baton!demo2026`; two-factor is relaxed in demo seed only):
+Demo accounts (password `Demo!crm2026`; two-factor is relaxed in demo seed only):
 
 | E-mail | Role |
 |---|---|
-| agent@baton.local | Client Services Agent |
-| supervisor@baton.local | Client Services Supervisor |
-| preanalytical@baton.local / analytical@ / logistics@ | Department Responder (sample desk for PRE/ANA) |
-| nursing@baton.local / nurse2@baton.local | Nursing, field app at `/field` |
-| manager.pre@baton.local | Department Manager (Pre-Analytical) |
-| exec@baton.local | Management (read-only) |
-| admin@baton.local (`ChangeMe!2026`) | System Administrator |
+| agent@crm.local | Client Services Agent |
+| supervisor@crm.local | Client Services Supervisor |
+| preanalytical@crm.local / analytical@ / logistics@ | Department Responder (sample desk for PRE/ANA) |
+| nursing@crm.local / nurse2@crm.local | Nursing, field app at `/field` |
+| manager.pre@crm.local | Department Manager (Pre-Analytical) |
+| exec@crm.local | Management (read-only) |
+| admin@crm.local (`ChangeMe!2026`) | System Administrator |
 
 ## Architecture
 
@@ -197,7 +212,7 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
   - nurses with frequent geolocation exceptions
   - the same complainant raising the same category three or more times in 30 days
 - **Proof of presence.** A checkpoint the same nurse could not physically have reached (over 150 km/h since their last one) is flagged as an implausible location, and supervisors are alerted.
-  - **Baton Field for Android** (`apps/android`, Capacitor) wraps the same PWA and reads GPS natively. The server refuses a position Android marks as coming from a **mock-location app**, and no reason can override it.
+  - **Pelo CRM Field for Android** (`apps/android`, Capacitor) wraps the same PWA and reads GPS natively. The server refuses a position Android marks as coming from a **mock-location app**, and no reason can override it.
   - The APK is built by `.github/workflows/android.yml`. Set the server URL when running the workflow.
 - **POPIA.**
   - Read audit of every ticket and bleed opened.

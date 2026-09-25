@@ -49,7 +49,7 @@ describe.skipIf(!url)('tier 2 (API + DB)', async () => {
     await seed(true, false);
     app = await buildApp();
     for (const [who, email] of [['cs', 'agent'], ['sup', 'supervisor'], ['pre', 'preanalytical'], ['log', 'logistics'], ['ana', 'analytical'], ['nurse', 'nursing']]) {
-      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@baton.local`, password: 'Baton!demo2026' } });
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@crm.local`, password: 'Demo!crm2026' } });
       jar[who] = String(r.headers['set-cookie']).split(';')[0];
     }
     lk = (await req('cs', 'GET', '/api/lookups')).json();
@@ -118,8 +118,8 @@ describe.skipIf(!url)('tier 2 (API + DB)', async () => {
 
   it('@mentions notify only colleagues who can see the ticket', async () => {
     const id = await open('Dr Mention');
-    const pre = (await sql`select name from users where email = 'preanalytical@baton.local'`)[0].name;
-    const ana = (await sql`select name from users where email = 'analytical@baton.local'`)[0].name;
+    const pre = (await sql`select name from users where email = 'preanalytical@crm.local'`)[0].name;
+    const ana = (await sql`select name from users where email = 'analytical@crm.local'`)[0].name;
     const r = (await req('cs', 'POST', `/api/tickets/${id}/notes`, { body: `@${pre} and @${ana} please check the fridge log` })).json();
     const routed = (await req('cs', 'GET', `/api/tickets/${id}`)).json().assignments.map((a: any) => a.department_code);
     expect(r.mentioned).toEqual(routed.includes('PRE') ? [pre] : []);

@@ -28,7 +28,7 @@ export async function handle(text: string, ip?: string): Promise<string> {
     const e = toEvent(m, await mapping());
     if (!e.event) {
       await stat(true, `Ignored ${e.id}: not a mapped lab event`);
-      return ack(m, 'AA', 'Not a Baton lab event; ignored');
+      return ack(m, 'AA', 'Not a CRM lab event; ignored');
     }
     if (!e.requisition_no) {
       await stat(false, `${e.id}: no requisition number in the mapped fields`);

@@ -38,12 +38,12 @@ describe.skipIf(!url)('hardening (API + DB)', async () => {
     await seed(true, false);
     app = await buildApp();
     for (const [who, email] of Object.entries({ cs: 'agent', sup: 'supervisor', nurse: 'nursing', admin: 'admin' })) {
-      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@baton.local`, password: who === 'admin' ? 'ChangeMe!2026' : 'Baton!demo2026' } });
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@crm.local`, password: who === 'admin' ? 'ChangeMe!2026' : 'Demo!crm2026' } });
       jar[who] = String(r.headers['set-cookie']).split(';')[0];
     }
     [hospital] = await sql`select * from organisations where name = 'Demo General Hospital'`;
     [coastal] = await sql`select * from organisations where name = 'Demo Coastal Hospital'`;
-    [nurse] = await sql`select id from users where email = 'nursing@baton.local'`;
+    [nurse] = await sql`select id from users where email = 'nursing@crm.local'`;
   });
   afterAll(async () => {
     await app?.close();
@@ -97,7 +97,7 @@ describe.skipIf(!url)('hardening (API + DB)', async () => {
     const [p] = await sql`insert into bleed_photos (bleed_id, kind, mime, size, key_wrapped, uploaded_by) values (${b.id}, 'sticker', 'image/jpeg', 5, ${keyWrapped}, ${nurse.id}) returning id`;
     mkdirSync(`${process.env.DATA_DIR}/blobs`, { recursive: true });
     writeFileSync(`${process.env.DATA_DIR}/blobs/${p.id}`, blob);
-    const [cs] = await sql`select id from users where email = 'agent@baton.local'`;
+    const [cs] = await sql`select id from users where email = 'agent@crm.local'`;
     await sql`update bleeds set closed_at = now() - interval '40 days', closed_by = ${cs.id} where id = ${b.id}`;
     expect((await retentionTick()).bleed_photos).toBeUndefined(); // policy off by default
     await sql`update settings set value = '{"bleed_photos": 30}' where key = 'retention_days'`;

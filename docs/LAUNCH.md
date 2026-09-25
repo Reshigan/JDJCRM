@@ -32,7 +32,7 @@ Totals: 73 API/DB tests and 16 browser tests. The browser tests run against the 
 
 Tick each one in the production environment.
 
-- [ ] **DNS and certificate.** `https://baton.jdj.local` opens without a warning on a CS PC and a nurse's phone (Caddy CA installed, or JDJ certificate mounted).
+- [ ] **DNS and certificate.** `https://crm.jdj.local` opens without a warning on a CS PC and a nurse's phone (Caddy CA installed, or JDJ certificate mounted).
 - [ ] **Active Directory.**
   - Put the domain controller's CA in `./certs` and set `LDAP_CA_FILE`.
   - Map the AD groups in Administration.

@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
     inputs:
       baton_url:
-        description: 'Baton server URL the app loads (e.g. https://baton.jdj.local)'
-        default: 'https://baton.local'
+        description: 'Baton server URL the app loads (e.g. https://crm.jdj.local)'
+        default: 'https://crm.local'
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -19,7 +19,7 @@ jobs:
       - run: npm ci
       - run: npx cap sync android
         working-directory: apps/android
-        env: { BATON_URL: "${{ inputs.baton_url || 'https://baton.local' }}" }
+        env: { BATON_URL: "${{ inputs.baton_url || 'https://crm.local' }}" }
       - run: ./gradlew assembleDebug --no-daemon
         working-directory: apps/android/android
       - uses: actions/upload-artifact@v4

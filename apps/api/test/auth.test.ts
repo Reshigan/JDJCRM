@@ -19,7 +19,7 @@ describe.skipIf(!url)('authentication (API + DB)', async () => {
   const { buildApp } = await import('../src/app');
   const { totp } = await import('../src/crypto');
   let app: Awaited<ReturnType<typeof buildApp>>;
-  const PW = 'Baton!demo2026';
+  const PW = 'Demo!crm2026';
 
   const login = async (username: string, password = PW) => {
     const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username, password } });
@@ -44,7 +44,7 @@ describe.skipIf(!url)('authentication (API + DB)', async () => {
   });
 
   it('an enforced role must enrol two-factor before any data is reachable, then verifies at every sign-in', async () => {
-    const first = await login('agent@baton.local');
+    const first = await login('agent@crm.local');
     expect(first.body.mfa).toBe('setup');
     expect((await as(first.cookie, 'GET', '/api/tickets')).statusCode).toBe(401);
     expect((await as(first.cookie, 'GET', '/api/me')).json().mfa_ok).toBe(false);
@@ -53,57 +53,57 @@ describe.skipIf(!url)('authentication (API + DB)', async () => {
     expect((await as(first.cookie, 'GET', '/api/tickets')).statusCode).toBe(200);
     expect((await as(first.cookie, 'POST', '/api/auth/mfa/setup')).statusCode).toBe(409); // cannot silently re-enrol
 
-    const next = await login('agent@baton.local');
+    const next = await login('agent@crm.local');
     expect(next.body.mfa).toBe('verify');
     expect((await as(next.cookie, 'GET', '/api/tickets')).statusCode).toBe(401);
     expect((await as(next.cookie, 'POST', '/api/auth/mfa/verify', { code: totp(secret) })).statusCode).toBe(200);
     expect((await as(next.cookie, 'GET', '/api/tickets')).statusCode).toBe(200);
     // Department roles are not enforced by default.
-    expect((await login('preanalytical@baton.local')).body.mfa).toBe('ok');
+    expect((await login('preanalytical@crm.local')).body.mfa).toBe('ok');
   });
 
   it('five wrong two-factor codes lock the account and end the session', async () => {
-    const s = await login('supervisor@baton.local');
+    const s = await login('supervisor@crm.local');
     await enrol(s.cookie);
-    const t = await login('supervisor@baton.local');
+    const t = await login('supervisor@crm.local');
     for (let i = 0; i < 5; i++) await as(t.cookie, 'POST', '/api/auth/mfa/verify', { code: '123456' });
     expect((await as(t.cookie, 'GET', '/api/me')).statusCode).toBe(401);
-    expect((await login('supervisor@baton.local')).status).toBe(423);
+    expect((await login('supervisor@crm.local')).status).toBe(423);
   });
 
   it('five wrong passwords lock the account, even against the right password, until the lock expires', async () => {
-    for (let i = 0; i < 5; i++) expect((await login('logistics@baton.local', 'wrong')).status).toBe(401);
-    expect((await login('logistics@baton.local')).status).toBe(423);
-    await sql`update users set locked_until = now() - interval '1 second' where email = 'logistics@baton.local'`;
-    const r = await login('logistics@baton.local');
+    for (let i = 0; i < 5; i++) expect((await login('logistics@crm.local', 'wrong')).status).toBe(401);
+    expect((await login('logistics@crm.local')).status).toBe(423);
+    await sql`update users set locked_until = now() - interval '1 second' where email = 'logistics@crm.local'`;
+    const r = await login('logistics@crm.local');
     expect(r.status).toBe(200);
-    expect((await sql`select failed_logins from users where email = 'logistics@baton.local'`)[0].failed_logins).toBe(0);
+    expect((await sql`select failed_logins from users where email = 'logistics@crm.local'`)[0].failed_logins).toBe(0);
     const [{ n }] = await sql`select count(*)::int as n from audit_log where action = 'auth.failed'`;
     expect(n).toBeGreaterThanOrEqual(5);
   });
 
   it('sign-out ends the session; a password change ends every other session', async () => {
-    const a = await login('analytical@baton.local');
-    const b = await login('analytical@baton.local');
+    const a = await login('analytical@crm.local');
+    const b = await login('analytical@crm.local');
     expect((await as(a.cookie, 'POST', '/api/auth/password', { current: 'wrong', next: 'Another!pass2026' })).statusCode).toBe(401);
     expect((await as(a.cookie, 'POST', '/api/auth/password', { current: PW, next: 'short' })).statusCode).toBe(400);
     expect((await as(a.cookie, 'POST', '/api/auth/password', { current: PW, next: 'Another!pass2026' })).statusCode).toBe(200);
     expect((await as(b.cookie, 'GET', '/api/me')).statusCode).toBe(401);
     expect((await as(a.cookie, 'GET', '/api/me')).statusCode).toBe(200);
-    expect((await login('analytical@baton.local')).status).toBe(401);
+    expect((await login('analytical@crm.local')).status).toBe(401);
     expect((await as(a.cookie, 'POST', '/api/auth/logout')).statusCode).toBe(200);
     expect((await as(a.cookie, 'GET', '/api/me')).statusCode).toBe(401);
   });
 
   it('expired sessions and deactivated users are refused', async () => {
-    const s = await login('nursing@baton.local');
-    await sql`update sessions set expires_at = now() - interval '1 minute' where user_id = (select id from users where email = 'nursing@baton.local')`;
+    const s = await login('nursing@crm.local');
+    await sql`update sessions set expires_at = now() - interval '1 minute' where user_id = (select id from users where email = 'nursing@crm.local')`;
     expect((await as(s.cookie, 'GET', '/api/me')).statusCode).toBe(401);
-    const t = await login('nursing@baton.local');
-    await sql`update users set active = false where email = 'nursing@baton.local'`;
+    const t = await login('nursing@crm.local');
+    await sql`update users set active = false where email = 'nursing@crm.local'`;
     expect((await as(t.cookie, 'GET', '/api/me')).statusCode).toBe(401);
-    expect((await login('nursing@baton.local')).status).toBe(401);
-    await sql`update users set active = true where email = 'nursing@baton.local'`;
+    expect((await login('nursing@crm.local')).status).toBe(401);
+    await sql`update users set active = true where email = 'nursing@crm.local'`;
   });
 
   it('Active Directory: group membership sets role and department; no group, no access; a local account cannot be taken over', async () => {
@@ -116,12 +116,12 @@ describe.skipIf(!url)('authentication (API + DB)', async () => {
     expect(u).toMatchObject({ role: 'dept_responder', department_id: pre.id, auth: 'ad', password_hash: null });
     expect((await login('thabo', 'wrong')).status).toBe(401);
 
-    ad.result = { email: 'stranger@jdj.local', name: 'Not In Baton', groups: ['cn=finance,ou=groups,dc=jdj,dc=local'] };
+    ad.result = { email: 'stranger@jdj.local', name: 'Not In The CRM', groups: ['cn=finance,ou=groups,dc=jdj,dc=local'] };
     expect((await login('stranger', 'ad-pass')).status).toBe(403);
 
-    ad.result = { email: 'agent@baton.local', name: 'Impostor', groups: ['cn=baton-pre,ou=groups,dc=jdj,dc=local'] };
+    ad.result = { email: 'agent@crm.local', name: 'Impostor', groups: ['cn=baton-pre,ou=groups,dc=jdj,dc=local'] };
     expect((await login('agent', 'ad-pass')).status).toBe(401);
-    expect((await sql`select auth, role from users where email = 'agent@baton.local'`)[0]).toMatchObject({ auth: 'local', role: 'cs_agent' });
+    expect((await sql`select auth, role from users where email = 'agent@crm.local'`)[0]).toMatchObject({ auth: 'local', role: 'cs_agent' });
 
     await sql`update users set locked_until = now() + interval '15 minutes' where email = 'thabo@jdj.local'`;
     ad.result = { email: 'thabo@jdj.local', name: 'Thabo Nkosi', groups: ['cn=baton-pre,ou=groups,dc=jdj,dc=local'] };

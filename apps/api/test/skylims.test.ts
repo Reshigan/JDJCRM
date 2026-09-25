@@ -71,7 +71,7 @@ describe.skipIf(!url)('SkyLIMS feed (MLLP + DB)', async () => {
     await sql.unsafe('drop schema public cascade; create schema public');
     await seed(true, false);
     app = await buildApp();
-    const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'agent@baton.local', password: 'Baton!demo2026' } });
+    const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'agent@crm.local', password: 'Demo!crm2026' } });
     cs = String(r.headers['set-cookie']).split(';')[0];
     server = startMllp(0);
     await new Promise((r) => server.once('listening', r));
@@ -109,7 +109,7 @@ describe.skipIf(!url)('SkyLIMS feed (MLLP + DB)', async () => {
     expect(audits.filter((a) => a.source === 'SkyLIMS').map((a) => a.action).sort()).toEqual(['bleed.lab_accept', 'bleed.receive', 'bleed.release']);
     const stored = JSON.stringify(await sql`select payload, result from lis_events where event_id like 'skylims:%'`);
     expect(stored).not.toMatch(/7\.2|Potassium|Smith|OBX/); // no results, no patient details
-    const st = (await app.inject({ method: 'GET', url: '/api/system/status', headers: { cookie: (await login('admin@baton.local', 'ChangeMe!2026')) } })).json();
+    const st = (await app.inject({ method: 'GET', url: '/api/system/status', headers: { cookie: (await login('admin@crm.local', 'ChangeMe!2026')) } })).json();
     expect(st.skylims.ok).toBe(true);
   });
 

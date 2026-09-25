@@ -1,21 +1,26 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
+/* Pelo typefaces (as @pelo/ui), self-hosted: the CSP allows fonts from 'self' only, and sites may be air-gapped. */
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource/jetbrains-mono/400.css';
 @import '@fontsource/jetbrains-mono/600.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Baton tokens. Brand never collides with status colours. */
+/* Pelo tokens (from @pelo/ui tokens.css): Paper / Mist surfaces, Ink text, Forest brand, Leaf data, Coral accent.
+   Status colours (ok / warn / bad / geo) stay separate from the brand and always travel with a label. */
 :root {
-  --bg: #f5f6fa;
+  --bg: #f4f8f5; /* paper */
   --surface: #ffffff;
-  --surface-2: #f0f2f7;
-  --line: #e3e6ee;
-  --text: #0e1726;
-  --muted: #5b6478;
-  --brand: #3d4fe0;
+  --surface-2: #eef4f0; /* mist */
+  --line: #e4ece7;
+  --text: #112019; /* ink */
+  --muted: #54655c; /* ink-2 */
+  --brand: #0e4d3a; /* forest */
   --brand-ink: #ffffff;
-  --brand-soft: #eceefe;
+  --brand-soft: #d8f1e5; /* leaf-soft */
+  --chart: #16a06a; /* leaf: validated ≥3:1 on light and dark surfaces, chroma ≥0.1 */
+  --coral: #ec4032; /* coral-600: accent marks and the focus ring (≥3:1 on white) */
   --green: #15803d;
   --green-soft: #dcfce7;
   --amber: #b45309;
@@ -27,15 +32,17 @@
   --shadow: 0 1px 2px rgb(14 23 38 / 0.04), 0 4px 16px rgb(14 23 38 / 0.04);
 }
 .dark {
-  --bg: #0a101c;
-  --surface: #111a2b;
-  --surface-2: #17223a;
-  --line: #22304a;
-  --text: #e6eaf2;
-  --muted: #8d97ad;
-  --brand: #7482ff;
-  --brand-ink: #0a101c;
-  --brand-soft: #1d2552;
+  --bg: #07140f;
+  --surface: #0b1e17;
+  --surface-2: #10291f;
+  --line: #1b3a2e;
+  --text: #e6f0ea;
+  --muted: #93a89c;
+  --brand: #5bd0a0; /* leaf-2 */
+  --brand-ink: #082a20;
+  --brand-soft: #123a2c;
+  --chart: #16a06a;
+  --coral: #ff5a4d;
   --green: #4ade80;
   --green-soft: #0f2e1d;
   --amber: #fbbf24;
@@ -48,7 +55,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -59,6 +67,8 @@
   --color-brand: var(--brand);
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
+  --color-chart: var(--chart);
+  --color-coral: var(--coral);
   --color-ok: var(--green);
   --color-ok-soft: var(--green-soft);
   --color-warn: var(--amber);
@@ -73,8 +83,11 @@ html,
 body {
   background: var(--bg);
   color: var(--text);
-  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
+}
+h1, h2, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 .num {
   font-family: var(--font-mono);
@@ -87,11 +100,11 @@ body {
   box-shadow: var(--shadow);
 }
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--coral);
   outline-offset: 2px;
 }
 dialog::backdrop {
-  background: rgb(10 16 28 / 0.45);
+  background: rgb(8 42 32 / 0.45);
   backdrop-filter: blur(2px);
 }
 @keyframes pulse-seg {
@@ -99,3 +112,14 @@ dialog::backdrop {
 }
 .pulse { animation: pulse-seg 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+
+/* Pelo canopy: the dark forest crown with a faint gold glow, worn by every Pelo staff surface. */
+.canopy {
+  background:
+    radial-gradient(120% 90% at 88% -25%, rgba(255, 197, 61, 0.18), transparent 55%),
+    linear-gradient(165deg, #082a20 0%, #0b3b2d 58%, #0e4d3a 100%);
+}
+/* the active-item heartbeat */
+.blip { width: 4px; height: 4px; border-radius: 999px; background: #ff5a4d; animation: blip 1.8s ease-out infinite; }
+@keyframes blip { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.7); opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .blip { animation: none; } }

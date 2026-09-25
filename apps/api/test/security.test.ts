@@ -23,8 +23,8 @@ describe.skipIf(!url)('security regressions (API + DB)', async () => {
     await sql.unsafe('drop schema public cascade; create schema public');
     await seed(true, false);
     app = await buildApp();
-    for (const [who, email, pw] of [['cs', 'agent', 'Baton!demo2026'], ['pre', 'preanalytical', 'Baton!demo2026'], ['nurse', 'nursing', 'Baton!demo2026'], ['admin', 'admin', 'ChangeMe!2026']]) {
-      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@baton.local`, password: pw } });
+    for (const [who, email, pw] of [['cs', 'agent', 'Demo!crm2026'], ['pre', 'preanalytical', 'Demo!crm2026'], ['nurse', 'nursing', 'Demo!crm2026'], ['admin', 'admin', 'ChangeMe!2026']]) {
+      const r = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: `${email}@crm.local`, password: pw } });
       jar[who] = String(r.headers['set-cookie']).split(';')[0];
     }
   });
@@ -34,7 +34,7 @@ describe.skipIf(!url)('security regressions (API + DB)', async () => {
   });
 
   it('percent-encoded paths cannot skip the admin check or sign-in', async () => {
-    const [me] = await sql`select id from users where email = 'preanalytical@baton.local'`;
+    const [me] = await sql`select id from users where email = 'preanalytical@crm.local'`;
     for (const path of ['/api/%61dmin/users', '/api/admin%2Fusers', '/api/Admin/users'])
       expect([403, 404]).toContain((await req('pre', 'GET', path)).statusCode);
     expect((await req('pre', 'PUT', `/api/%61dmin/users/${me.id}`, { role: 'admin' })).statusCode).toBe(403);
@@ -46,7 +46,7 @@ describe.skipIf(!url)('security regressions (API + DB)', async () => {
   });
 
   it('admin and management can never be given department-scoped access', async () => {
-    const [me] = await sql`select id from users where email = 'admin@baton.local'`;
+    const [me] = await sql`select id from users where email = 'admin@crm.local'`;
     const [pre] = await sql`select id from departments where code = 'PRE'`;
     expect((await req('admin', 'PUT', `/api/admin/users/${me.id}`, { department_id: pre.id })).statusCode).toBe(400);
     expect((await req('admin', 'GET', '/api/tickets')).json()).toEqual([]);

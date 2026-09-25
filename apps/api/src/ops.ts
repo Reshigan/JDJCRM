@@ -4,6 +4,7 @@ import { hostname } from 'node:os';
 import { sql } from './db';
 import { env } from './env';
 import { notify } from './notify';
+import { BRAND } from '@baton/core';
 
 const setJson = (key: string, value: unknown) =>
   sql`insert into settings values (${key}, ${sql.json(value as any)}) on conflict (key) do update set value = excluded.value`;
@@ -22,7 +23,7 @@ export async function watchdog(now = new Date()) {
     where (settings.value #>> '{}')::timestamptz < ${now} - interval '1 hour' returning 1`;
   if (!claimed) return false;
   await notify(sql, { roles: ['admin', 'cs_supervisor'] }, {
-    title: 'Baton worker has stopped — escalations and reports are paused',
+    title: `${BRAND.product} worker has stopped — escalations and reports are paused`,
     body: hb ? `Last heartbeat ${Math.round(age)} min ago from ${hb.value.host}. Run: docker compose ps worker; docker compose logs worker.` : 'The worker has never reported.',
     link: '/admin/status',
   });

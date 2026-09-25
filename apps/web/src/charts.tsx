@@ -1,4 +1,4 @@
-// Chart kit. One series per chart in the brand hue (validated ≥3:1 on both surfaces); limits are neutral ink
+// Chart kit. One series per chart in the Pelo data hue (Leaf) (validated ≥3:1 on both surfaces); limits are neutral ink
 // markers; values live in text tokens. Every chart has a hover/focus tooltip and a table view.
 import { useRef, useState, type ReactNode } from 'react';
 import { Table2, BarChart3 } from 'lucide-react';
@@ -80,7 +80,7 @@ export function BarList({ rows, fmt = String, onPick, markerLabel = 'Limit' }: {
           >
             <span className="truncate text-[13px]">{r.label}</span>
             <span className="relative h-5">
-              <span className="absolute inset-y-0 left-0 my-auto h-2.5 rounded-r-[4px] bg-brand transition-opacity group-hover:opacity-80" style={{ width: `${((r.value ?? 0) / max) * 100}%` }} />
+              <span className="absolute inset-y-0 left-0 my-auto h-2.5 rounded-r-[4px] bg-chart transition-opacity group-hover:opacity-80" style={{ width: `${((r.value ?? 0) / max) * 100}%` }} />
               {r.marker != null && <span className="absolute inset-y-0 w-px bg-text/70" style={{ left: `${(r.marker / max) * 100}%` }} aria-hidden />}
             </span>
             <span className="num text-right text-[13px]">{r.value == null ? '—' : fmt(r.value)}</span>
@@ -116,7 +116,7 @@ export function Columns({ data, label, fmtDay = (d: string) => d.slice(5) }: { d
               onPointerMove={(e) => t.show(e, <><b className="num text-sm">{d.n}</b> <span className="text-muted">{label} · {d.day}</span></>)}
               onFocus={(e) => t.show(e.currentTarget, <><b className="num text-sm">{d.n}</b> <span className="text-muted">{label} · {d.day}</span></>)} onBlur={t.hide}>
               <rect x={PAD.l + i * band} y={PAD.t} width={band} height={H - PAD.t - PAD.b} fill="transparent" />
-              {d.n > 0 && <path d={`M${x},${y(0)} V${y(d.n) + r} q0,-${r} ${r},-${r} h${bw - 2 * r} q${r},0 ${r},${r} V${y(0)} Z`} fill="var(--brand)" />}
+              {d.n > 0 && <path d={`M${x},${y(0)} V${y(d.n) + r} q0,-${r} ${r},-${r} h${bw - 2 * r} q${r},0 ${r},${r} V${y(0)} Z`} fill="var(--chart)" />}
             </g>
           );
         })}
@@ -152,9 +152,9 @@ export function PctLine({ data, label }: { data: { day: string; v: number | null
           <g key={v}><line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="var(--line)" /><text x={PAD.l - 6} y={y(v) + 3} textAnchor="end" className="fill-[var(--muted)] text-[10px]">{v}%</text></g>
         ))}
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={H - PAD.b} stroke="var(--muted)" strokeWidth="1" />}
-        <path d={path} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={path} fill="none" stroke="var(--chart)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         {data.map((d, i) => d.v != null && (data[i - 1]?.v == null && data[i + 1]?.v == null || i === hover || i === lastI) && (
-          <circle key={i} cx={x(i)} cy={y(d.v)} r="4" fill="var(--brand)" stroke="var(--surface)" strokeWidth="2" />
+          <circle key={i} cx={x(i)} cy={y(d.v)} r="4" fill="var(--chart)" stroke="var(--surface)" strokeWidth="2" />
         ))}
         {lastI >= 0 && data[lastI].v != null && <text x={x(lastI) > W - 60 ? x(lastI) - 8 : x(lastI) + 8} y={y(data[lastI].v!) < PAD.t + 14 ? y(data[lastI].v!) + 16 : y(data[lastI].v!) - 8} textAnchor={x(lastI) > W - 60 ? 'end' : 'start'} className="fill-[var(--text)] text-[11px] font-semibold">{data[lastI].v}%</text>}
         {[0, Math.floor((data.length - 1) / 2), data.length - 1].filter((v, i, a) => a.indexOf(v) === i && data[v]).map((i) => (

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Pelo CRM">
+  <rect width="512" height="512" rx="112" fill="#0E4D3A"/>
+  <g transform="translate(68 68) scale(7.83)">
+    <path d="M24 42S5 30.5 5 17.8C5 11.3 10 7 15.6 7c3.7 0 7 2 8.4 5 1.4-3 4.7-5 8.4-5C38 7 43 11.3 43 17.8 43 30.5 24 42 24 42Z" fill="#FF5A4D"/>
+    <path d="M9 24h7.5l3-7 5 13 3.2-7.4 2 1.4H39" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+</svg>

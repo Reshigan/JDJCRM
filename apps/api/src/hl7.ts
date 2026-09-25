@@ -1,4 +1,4 @@
-// Minimal HL7 v2 for the SkyLIMS feed: parse, read fields by path, map to Baton lab events, ACK, MLLP framing.
+// Minimal HL7 v2 for the SkyLIMS feed: parse, read fields by path, map to CRM lab events, ACK, MLLP framing.
 import { SAST_OFFSET } from '@baton/core';
 
 export type Hl7 = { segments: string[][]; sep: { field: string; comp: string; rep: string } };
@@ -65,7 +65,7 @@ export function ack(m: Hl7 | null, code: 'AA' | 'AE' | 'AR', text: string) {
   const g = (p: string) => (m ? clean(get(m, p)) : '');
   const ts = new Date(Date.now() + SAST_OFFSET).toISOString().replace(/\D/g, '').slice(0, 14) + '+0200';
   return [
-    `MSH|^~\\&|BATON|JDJ|${g('MSH-3')}|${g('MSH-4')}|${ts}||ACK^${g('MSH-9.2')}|ACK${Date.now()}|P|${g('MSH-12') || '2.5'}`,
+    `MSH|^~\\&|CRM|JDJ|${g('MSH-3')}|${g('MSH-4')}|${ts}||ACK^${g('MSH-9.2')}|ACK${Date.now()}|P|${g('MSH-12') || '2.5'}`,
     `MSA|${code}|${g('MSH-10')}|${clean(text)}`,
   ].join('\r');
 }

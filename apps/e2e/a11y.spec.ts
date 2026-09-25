@@ -22,7 +22,7 @@ test('accessibility: login and every Client Services / management screen', async
   const found: string[] = [];
   const anon = await (await browser.newContext()).newPage();
   found.push(...(await scan(anon, '/login')));
-  const cs = await signIn(browser, 'supervisor@baton.local');
+  const cs = await signIn(browser, 'supervisor@crm.local');
   const ticket = (await (await cs.request.get('/api/tickets?scope=all')).json())[0];
   const bleed = (await (await cs.request.get('/api/bleeds')).json())[0];
   for (const p of ['/dashboard/live', '/dashboard/performance', '/dashboard/quality', '/tickets', '/tickets/new', `/tickets/${ticket.id}`, '/bleeds', '/bleeds/new', `/bleeds/${bleed.id}`, '/nurses', '/contacts', '/search?q=Dr', '/account'])
@@ -32,15 +32,15 @@ test('accessibility: login and every Client Services / management screen', async
 
 test('accessibility: administration and the sample desk', async ({ browser }) => {
   const found: string[] = [];
-  const admin = await signIn(browser, 'admin@baton.local');
+  const admin = await signIn(browser, 'admin@crm.local');
   for (const p of ['/admin/users', '/admin/status', '/admin/audit', '/admin/canned_responses']) found.push(...(await scan(admin, p)));
-  const pre = await signIn(browser, 'preanalytical@baton.local');
+  const pre = await signIn(browser, 'preanalytical@crm.local');
   found.push(...(await scan(pre, '/samples')));
   expect(found).toEqual([]);
 });
 
 test('accessibility: the nurse field app on a phone, light and dark', async ({ browser }) => {
-  const nurse = await signIn(browser, 'nursing@baton.local', phone());
+  const nurse = await signIn(browser, 'nursing@crm.local', phone());
   const found = await scan(nurse, '/field');
   const run = await (await nurse.request.get('/api/field')).json();
   const r = run.requests?.[0] ?? run[0];

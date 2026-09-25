@@ -5,15 +5,26 @@ import { formatMinutes, QUERY_STATES, type QueryState } from '@baton/core';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
-/** Six segments: the six measured intervals of a bleed; every handover owned. */
-export function BatonMark({ size = 28, className }: { size?: number; className?: string }) {
+/** Pelo emblem (from @pelo/ui): a heart with an ECG pulse running through it. */
+export function Emblem({ size = 28, className, title }: { size?: number; className?: string; title?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" className={className} aria-hidden>
-      <rect width="64" height="64" rx="14" fill="#0E1726" />
-      {[0.35, 0.5, 0.65, 0.8, 0.9, 1].map((o, i) => (
-        <rect key={i} x={8 + i * 8.4} y="26" width="6" height="12" rx="3" fill="#7482FF" opacity={o} />
-      ))}
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className} role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+      <path d="M24 42S5 30.5 5 17.8C5 11.3 10 7 15.6 7c3.7 0 7 2 8.4 5 1.4-3 4.7-5 8.4-5C38 7 43 11.3 43 17.8 43 30.5 24 42 24 42Z" fill="#FF5A4D" />
+      <path d="M9 24h7.5l3-7 5 13 3.2-7.4 2 1.4H39" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** "Pel" + coral "o" and the product label, as the Pelo Wordmark. The only place besides BRAND that spells the name. */
+export function Wordmark({ size = 22, dark = false, label = 'CRM' }: { size?: number; dark?: boolean; label?: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 font-display font-extrabold" style={{ fontSize: size }}>
+      <Emblem size={size * 1.15} />
+      <span style={{ color: dark ? '#FFFFFF' : 'var(--brand)', letterSpacing: '-0.02em' }}>
+        Pel<span style={{ color: '#FF5A4D' }}>o</span>
+      </span>
+      {label && <span className={cx('font-sans font-semibold', dark ? 'text-white/70' : 'text-muted')} style={{ fontSize: size * 0.62 }}>{label}</span>}
+    </span>
   );
 }
 
@@ -161,8 +172,8 @@ export const Empty = ({ children }: { children: ReactNode }) => (
 
 export const ago = (d: string | Date) => formatMinutes((Date.now() - new Date(d).getTime()) / 60_000, true);
 
-/** Baton Bar: the six measured bleed intervals. Filled by % of limit, coloured by status, current segment pulses. */
-export function BatonBar({ intervals, labels, className }: { intervals: any[]; labels?: boolean; className?: string }) {
+/** Stage bar: the six measured bleed intervals. Filled by % of limit, coloured by status, current segment pulses. */
+export function StageBar({ intervals, labels, className }: { intervals: any[]; labels?: boolean; className?: string }) {
   const col = (f: Flag) => (f === 'red' ? 'var(--red)' : f === 'amber' ? 'var(--amber)' : 'var(--green)');
   return (
     <div className={className}>

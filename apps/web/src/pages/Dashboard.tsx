@@ -5,7 +5,7 @@ import { Download, Lightbulb, MapPinOff, Maximize2, OctagonAlert, CheckCircle2, 
 import { BLEED_STATES, can, formatMinutes, PRIORITIES, ROOT_CAUSES, SAST_OFFSET, type BleedState } from '@baton/core';
 import { api, useLookups, useMe } from '../api';
 import { BarList, ChartCard, Columns, DataTable, PctLine, Stat } from '../charts';
-import { BatonBar, Button, Card, cx, DeptClock, Empty, FlagPill, Select, type Flag } from '../ui';
+import { StageBar, Button, Card, cx, DeptClock, Empty, FlagPill, Select, type Flag } from '../ui';
 
 const sastDay = (offsetDays = 0) => new Date(Date.now() + SAST_OFFSET - offsetDays * 86_400_000).toISOString().slice(0, 10);
 const RANK = { red: 2, amber: 1, green: 0 } as const;
@@ -89,7 +89,7 @@ function Live() {
                     <div className="truncate text-sm font-medium">{b.hospital} <span className="num text-xs font-normal text-muted">{b.number}</span></div>
                     <div className="truncate text-xs text-muted">{b.nurse ?? 'Unallocated'} · {BLEED_STATES[b.state as BleedState]}{b.current && ` · ${formatMinutes(b.current.used)} in ${b.current.label.toLowerCase()}`}</div>
                   </div>
-                  <div className="flex items-center gap-2"><BatonBar intervals={b.intervals} className="flex-1" /><FlagPill flag={b.flag} compact /></div>
+                  <div className="flex items-center gap-2"><StageBar intervals={b.intervals} className="flex-1" /><FlagPill flag={b.flag} compact /></div>
                 </Link>
               </li>
             ))}

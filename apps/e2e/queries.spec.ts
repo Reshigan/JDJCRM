@@ -3,7 +3,7 @@ import { signIn, uniq } from './helpers';
 
 test('query journey: CS logs → two departments respond → CS reviews, calls, and closes', async ({ browser }) => {
   const tag = uniq();
-  const cs = await signIn(browser, 'agent@baton.local');
+  const cs = await signIn(browser, 'agent@crm.local');
   await cs.goto('/tickets/new');
   await cs.getByPlaceholder('Start typing to search previous complainants').fill(`Dr E2E ${tag}`);
   await cs.getByPlaceholder('Search practices and hospitals').fill('Parkview Medical Centre');
@@ -18,7 +18,7 @@ test('query journey: CS logs → two departments respond → CS reviews, calls, 
   const ticketUrl = cs.url();
   await expect(cs.getByText('Pre-Analytical').first()).toBeVisible();
 
-  for (const [email, dept] of [['preanalytical@baton.local', 'Pre-Analytical'], ['logistics@baton.local', 'Logistics']]) {
+  for (const [email, dept] of [['preanalytical@crm.local', 'Pre-Analytical'], ['logistics@crm.local', 'Logistics']]) {
     const d = await signIn(browser, email);
     await d.goto(ticketUrl);
     const card = d.locator('div.rounded-xl', { hasText: dept }).first();

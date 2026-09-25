@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import QRCode from 'qrcode';
 import { z } from 'zod';
-import { can, type Permission, type Role } from '@baton/core';
+import { BRAND, can, type Permission, type Role } from '@baton/core';
 import { audit, fail, sql } from './db';
 import { env } from './env';
 import { hashPassword, sha256, token, totpSecret, verifyPassword, verifyTotp } from './crypto';
@@ -67,7 +67,7 @@ export function authPlugin(app: FastifyInstance) {
       const ad = await adAuthenticate(username, password);
       if (ad) {
         const [map] = await sql`select role, department_id from ad_groups where lower(group_dn) = any(${ad.groups}) order by priority limit 1`;
-        if (!map) fail(403, 'Your AD account is not in a Baton group. Ask the administrator.');
+        if (!map) fail(403, `Your AD account is not in a ${BRAND.product} group. Ask the administrator.`);
         [u] = await sql`
           insert into users (email, name, role, department_id, auth) values (${ad.email}, ${ad.name}, ${map.role}, ${map.department_id}, 'ad')
           on conflict (email) do update set name = excluded.name, role = excluded.role, department_id = excluded.department_id
@@ -100,7 +100,8 @@ export function authPlugin(app: FastifyInstance) {
     if (req.user.mfa_enabled) fail(409, 'Two-factor already enabled');
     const secret = totpSecret();
     await sql`update users set totp_secret = ${secret} where id = ${req.user.id}`;
-    const uri = `otpauth://totp/Baton:${encodeURIComponent(req.user.email)}?secret=${secret}&issuer=Baton`;
+    const issuer = encodeURIComponent(BRAND.product);
+    const uri = `otpauth://totp/${issuer}:${encodeURIComponent(req.user.email)}?secret=${secret}&issuer=${issuer}`;
     return { secret, qr: await QRCode.toDataURL(uri, { margin: 1, width: 220 }) };
   });
 

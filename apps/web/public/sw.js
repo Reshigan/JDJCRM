@@ -1,6 +1,6 @@
-// Baton service worker: app shell works offline. API calls are never cached (patient data stays server-side).
-const CACHE = 'baton-shell-v1';
-const SHELL = ['/', '/index.html', '/baton.svg', '/theme.js', '/manifest.webmanifest'];
+// Service worker: app shell works offline. API calls are never cached (patient data stays server-side).
+const CACHE = 'crm-shell-v2'; // bumped: new brand assets
+const SHELL = ['/', '/index.html', '/icon.svg', '/icon-maskable.svg', '/theme.js', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
