@@ -203,6 +203,7 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
   - Read audit of every ticket and bleed opened.
   - A **POPIA access report** from Search (supervisor, management): every record about a person and everyone who viewed it.
   - Retention purges (`retention_days`).
+- **Launch readiness** ([docs/LAUNCH.md](docs/LAUNCH.md)): what CI proves on every push, and the on-site checks before go-live.
 - **Operations** ([docs/RUNBOOK.md](docs/RUNBOOK.md)): backup, restore with audit-chain verification, master-key rotation (re-wraps file keys without rewriting files), upgrades, air-gapped install, incidents.
   - Restore and rotation were both drilled during development: identical row counts, chain intact, and every photo decrypts with the new key and none with the old.
 
@@ -257,7 +258,7 @@ apps/web        React 19 + Vite + TanStack Query + Tailwind v4 (PWA)
   | Excel export, 30 days | 1.5 s |
 
 - **Tests.**
-  - 64 API/DB integration tests, including the SkyLIMS feed over a real MLLP socket.
+  - 73 API/DB integration tests, including sign-in and two-factor, a guard over every route, real SMTP delivery and the SkyLIMS feed over a real MLLP socket.
   - 10 browser journeys (`apps/e2e`, Playwright). They cover:
     - the full query lifecycle, including the effectiveness check;
     - the full bleed lifecycle, with the capture done **with the network off** and synced afterwards;
