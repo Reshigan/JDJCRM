@@ -1,0 +1,118 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: baton, POSTGRES_PASSWORD: baton, POSTGRES_DB: baton_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U baton" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+        env: { TEST_DATABASE_URL: "postgres://baton:baton@localhost:5432/baton_test" }
+      - run: npm run build
+      - name: Load test (100k queries, 20k bleeds) against response-time budgets
+        run: npm run loadtest -w @baton/api
+        env: { DATABASE_URL: "postgres://baton:baton@localhost:5432/baton_test" }
+
+  # Every role's journey in a real browser, against the dev servers.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: check
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: baton, POSTGRES_PASSWORD: baton, POSTGRES_DB: baton }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U baton" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://baton:baton@localhost:5432/baton
+      DATA_DIR: /tmp/baton-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/e2e
+      - run: |
+          echo "MASTER_KEY=$(head -c32 /dev/urandom | base64)" >> "$GITHUB_ENV"
+      - run: npm run seed -w @baton/api -- --demo
+      - run: |
+          nohup npx tsx apps/api/src/server.ts > api.log 2>&1 &
+          nohup npx tsx apps/api/src/worker.ts > worker.log 2>&1 &
+          (cd apps/web && nohup npx vite --port 5173 --strictPort > ../../web.log 2>&1 &)
+          npx wait-on -t 60000 http://localhost:3000/api/health http://localhost:5173
+      - run: npx playwright test
+        working-directory: apps/e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: e2e-report, path: "apps/e2e/report\napps/e2e/test-results\n*.log" }
+
+  # The real on-prem deployment: build images, boot the compose stack, run the same journeys through Caddy/HTTPS.
+  docker:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - name: Configure (as an installer would)
+        run: printf 'SITE_ADDRESS=localhost\nAPP_URL=https://localhost\nADMIN_PASSWORD=ChangeMe!2026\nSMTP_REQUIRE_TLS=false\nCOMPOSE_PROFILES=skylims\n' > .env
+      - name: Install with the real script
+        run: ./scripts/init.sh
+      - name: Wait for the stack
+        run: |
+          for i in $(seq 1 60); do curl -skf https://localhost/api/health && break; sleep 2; done
+          docker compose ps
+      - name: Security headers present
+        run: |
+          curl -skI https://localhost/ | tee headers.txt
+          grep -i "content-security-policy" headers.txt
+          grep -i "strict-transport-security" headers.txt
+      - name: SkyLIMS HL7 listener answers with an ACK
+        run: |
+          ok=; for i in $(seq 1 30); do node scripts/hl7-ping.mjs && ok=1 && break; sleep 2; done
+          docker compose logs lis | tail -5
+          test -n "$ok"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/e2e
+      - name: Fresh install journey (two-factor enforced, no demo data)
+        run: npx playwright test install.spec.ts
+        working-directory: apps/e2e
+        env: { E2E_BASE_URL: "https://localhost", E2E_FRESH_INSTALL: "1" }
+      - name: Load demo data (the journeys below sign in without two-factor)
+        run: |
+          docker compose exec -T -e ADMIN_PASSWORD='ChangeMe!2026' api node dist/seed.js --demo
+          docker compose exec -T db psql -U baton -qc "update users set mfa_enabled = false, totp_secret = null where email = 'admin@crm.local'"
+      - name: Every journey through Caddy/HTTPS
+        run: npx playwright test
+        working-directory: apps/e2e
+        env: { E2E_BASE_URL: "https://localhost" }
+      - name: Backup, restore and key rotation with the real scripts
+        run: |
+          ./scripts/backup.sh
+          echo RESTORE | ./scripts/restore.sh backups/baton_*.dump backups/blobs_*.tgz | tee restore.txt
+          grep -q "audit chain intact" restore.txt
+          for i in $(seq 1 60); do curl -skf https://localhost/api/health && break; sleep 2; done
+          ./scripts/rotate-key.sh
+          ls secrets/master_key.retired.*
+          for i in $(seq 1 60); do curl -skf https://localhost/api/health && break; sleep 2; done
+      - name: After restore and rotation, data and encrypted photos are intact
+        run: npx playwright test ops.spec.ts
+        working-directory: apps/e2e
+        env: { E2E_BASE_URL: "https://localhost", E2E_AFTER_OPS: "1" }
+      - if: always()
+        run: docker compose logs --no-color > compose.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: docker-e2e, path: "compose.log\napps/e2e/report\napps/e2e/test-results" }

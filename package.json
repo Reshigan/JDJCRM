@@ -1,0 +1,22 @@
+{
+  "name": "baton",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @baton/api",
+    "dev:web": "npm run dev -w @baton/web",
+    "build": "npm run build -w @baton/api && npm run build -w @baton/web",
+    "typecheck": "tsc -p packages/core && tsc -p apps/api && tsc -p apps/web && tsc -p apps/e2e",
+    "test": "vitest run",
+    "e2e": "npm test -w @baton/e2e"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "wait-on": "^9.1.0"
+  }
+}

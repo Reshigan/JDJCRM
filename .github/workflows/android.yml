@@ -1,0 +1,26 @@
+name: Android (Pelo CRM Field)
+on:
+  push:
+    paths: ['apps/android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+    inputs:
+      baton_url:
+        description: 'Pelo CRM server URL the app loads (e.g. https://crm.jdj.local)'
+        default: 'https://crm.local'
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+      - run: npx cap sync android
+        working-directory: apps/android
+        env: { BATON_URL: "${{ inputs.baton_url || 'https://crm.local' }}" }
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: apps/android/android
+      - uses: actions/upload-artifact@v4
+        with: { name: baton-field-debug-apk, path: apps/android/android/app/build/outputs/apk/debug/*.apk }

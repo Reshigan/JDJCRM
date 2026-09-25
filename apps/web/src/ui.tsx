@@ -1,0 +1,215 @@
+import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, CheckCircle2, Circle, OctagonAlert } from 'lucide-react';
+import { formatMinutes, QUERY_STATES, type QueryState } from '@baton/core';
+
+export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
+
+/** Pelo emblem (from @pelo/ui): a heart with an ECG pulse running through it. */
+export function Emblem({ size = 28, className, title }: { size?: number; className?: string; title?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className} role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+      <path d="M24 42S5 30.5 5 17.8C5 11.3 10 7 15.6 7c3.7 0 7 2 8.4 5 1.4-3 4.7-5 8.4-5C38 7 43 11.3 43 17.8 43 30.5 24 42 24 42Z" fill="#FF5A4D" />
+      <path d="M9 24h7.5l3-7 5 13 3.2-7.4 2 1.4H39" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** "Pel" + coral "o" and the product label, as the Pelo Wordmark. The only place besides BRAND that spells the name. */
+export function Wordmark({ size = 22, dark = false, label = 'CRM' }: { size?: number; dark?: boolean; label?: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 font-display font-extrabold" style={{ fontSize: size }}>
+      <Emblem size={size * 1.15} />
+      <span style={{ color: dark ? '#FFFFFF' : 'var(--brand)', letterSpacing: '-0.02em' }}>
+        Pel<span style={{ color: '#FF5A4D' }}>o</span>
+      </span>
+      {label && <span className={cx('font-sans font-semibold', dark ? 'text-white/70' : 'text-muted')} style={{ fontSize: size * 0.62 }}>{label}</span>}
+    </span>
+  );
+}
+
+type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'danger' | 'outline'; size?: 'sm' | 'md' };
+export const Button = forwardRef<HTMLButtonElement, BtnProps>(({ variant = 'primary', size = 'md', className, ...p }, ref) => (
+  <button
+    ref={ref}
+    {...p}
+    className={cx(
+      'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+      size === 'sm' ? 'h-8 px-3 text-[13px]' : 'h-10 px-4 text-sm',
+      variant === 'primary' && 'bg-brand text-brand-ink hover:opacity-90',
+      variant === 'outline' && 'border border-line bg-surface hover:bg-surface-2',
+      variant === 'ghost' && 'hover:bg-surface-2',
+      variant === 'danger' && 'bg-bad text-white hover:opacity-90',
+      className,
+    )}
+  />
+));
+
+const field = 'w-full rounded-lg border border-line bg-surface px-3 text-sm placeholder:text-muted/70 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20';
+export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((p, ref) => (
+  <input ref={ref} {...p} className={cx(field, 'h-10', p.className)} />
+));
+export const Select = (p: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...p} className={cx(field, 'h-10 pr-8', p.className)} />;
+export const Textarea = (p: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea rows={4} {...p} className={cx(field, 'py-2', p.className)} />;
+
+export function Field({ label, hint, children, required, className }: { label: string; hint?: ReactNode; children: ReactNode; required?: boolean; className?: string }) {
+  return (
+    <label className={cx('block', className)}>
+      <span className="mb-1.5 block text-[13px] font-medium">
+        {label}
+        {required && <span className="text-bad"> *</span>}
+      </span>
+      {children}
+      {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
+    </label>
+  );
+}
+
+export const Card = ({ title, action, children, className }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) => (
+  <section className={cx('card', className)}>
+    {title && (
+      <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {action}
+      </header>
+    )}
+    <div className="p-5">{children}</div>
+  </section>
+);
+
+export type Flag = 'green' | 'amber' | 'red';
+const FLAG = {
+  green: { cls: 'bg-ok-soft text-ok', label: 'On time', Icon: CheckCircle2 },
+  amber: { cls: 'bg-warn-soft text-warn', label: 'At risk', Icon: AlertTriangle },
+  red: { cls: 'bg-bad-soft text-bad', label: 'Breached', Icon: OctagonAlert },
+};
+/** Status is never colour alone: icon + label too. */
+export function FlagPill({ flag, compact }: { flag: Flag; compact?: boolean }) {
+  const f = FLAG[flag];
+  return (
+    <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', f.cls)} title={f.label}>
+      <f.Icon size={13} strokeWidth={2.4} />
+      {!compact && f.label}
+    </span>
+  );
+}
+
+export const Badge = ({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'brand' | Flag | 'geo' }) => (
+  <span
+    className={cx(
+      'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium',
+      tone === 'neutral' && 'bg-surface-2 text-muted',
+      tone === 'brand' && 'bg-brand-soft text-brand',
+      tone === 'green' && 'bg-ok-soft text-ok',
+      tone === 'amber' && 'bg-warn-soft text-warn',
+      tone === 'red' && 'bg-bad-soft text-bad',
+      tone === 'geo' && 'bg-geo-soft text-geo',
+    )}
+  >
+    {children}
+  </span>
+);
+
+export const PRIORITY_TONE = { critical: 'red', high: 'amber', normal: 'neutral' } as const;
+
+export function StatePill({ state }: { state: QueryState }) {
+  const tone = state === 'closed' ? 'green' : state === 'response_submitted' || state === 'under_review' || state === 'client_contacted' ? 'brand' : 'neutral';
+  return <Badge tone={tone}>{QUERY_STATES[state]}</Badge>;
+}
+
+/** Dept Clock: one ring per routed department, each running its own SLA. */
+export function DeptClock({ a, size = 44 }: { a: any; size?: number }) {
+  const done = ['responded', 'accepted'].includes(a.state);
+  const pct = Math.min(a.sla.pct, 100);
+  const r = size / 2 - 4;
+  const c = 2 * Math.PI * r;
+  const color = done ? 'var(--muted)' : a.sla.flag === 'red' ? 'var(--red)' : a.sla.flag === 'amber' ? 'var(--amber)' : 'var(--green)';
+  const tip = done
+    ? `${a.department}: responded in ${formatMinutes(a.sla.used)}`
+    : `${a.department}: ${a.sla.remaining >= 0 ? formatMinutes(a.sla.remaining) + ' left' : formatMinutes(-a.sla.remaining) + ' over'} (${Math.round(a.sla.pct)}%)`;
+  return (
+    <span className="relative inline-grid place-items-center" style={{ width: size, height: size }} title={tip} aria-label={tip}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth="4" />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
+          strokeDasharray={`${(pct / 100) * c} ${c}`} className={cx(!done && a.sla.flag === 'red' && 'pulse')}
+        />
+      </svg>
+      <span className="absolute text-[10px] font-semibold tracking-tight">{a.code ?? a.department_code}</span>
+    </span>
+  );
+}
+
+export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current!;
+    if (open && !d.open) d.showModal();
+    if (!open && d.open) d.close();
+  }, [open]);
+  return (
+    <dialog ref={ref} onClose={onClose} className={cx('card m-auto w-[calc(100%-2rem)] p-0 text-text', wide ? 'max-w-2xl' : 'max-w-md')}>
+      {open && (
+        <>
+          <header className="border-b border-line px-5 py-3.5 text-sm font-semibold">{title}</header>
+          <div className="p-5">{children}</div>
+        </>
+      )}
+    </dialog>
+  );
+}
+
+export const ErrorText = ({ error }: { error: unknown }) =>
+  error ? <p className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{(error as Error).message}</p> : null;
+
+export const Empty = ({ children }: { children: ReactNode }) => (
+  <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted">
+    <Circle size={20} className="opacity-40" />
+    {children}
+  </div>
+);
+
+export const ago = (d: string | Date) => formatMinutes((Date.now() - new Date(d).getTime()) / 60_000, true);
+
+/** Stage bar: the six measured bleed intervals. Filled by % of limit, coloured by status, current segment pulses. */
+export function StageBar({ intervals, labels, className }: { intervals: any[]; labels?: boolean; className?: string }) {
+  const col = (f: Flag) => (f === 'red' ? 'var(--red)' : f === 'amber' ? 'var(--amber)' : 'var(--green)');
+  return (
+    <div className={className}>
+      <div className="flex gap-1" role="img" aria-label={intervals.map((i) => `${i.label}: ${i.status}${i.status !== 'pending' ? `, ${Math.round(i.pct)}%` : ''}`).join('; ')}>
+        {intervals.map((i) => (
+          <div key={i.key} className="relative h-2 flex-1 overflow-hidden rounded-full bg-line" title={`${i.label} · ${i.status === 'pending' ? 'not started' : `${formatMinutes(i.used)} of ${formatMinutes(i.limit)}`}`}>
+            {i.status !== 'pending' && (
+              <div className={cx('absolute inset-y-0 left-0 rounded-full', i.status === 'running' && 'pulse')} style={{ width: `${i.status === 'done' ? 100 : Math.max(6, Math.min(100, i.pct))}%`, background: col(i.flag) }} />
+            )}
+          </div>
+        ))}
+      </div>
+      {labels && (
+        <div className="mt-1.5 grid grid-cols-6 gap-1 text-[11px] text-muted">
+          {intervals.map((i) => <span key={i.key} className={cx('truncate', i.status === 'running' && 'font-semibold text-text')}>{i.label}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Live LIS lookup for a requisition number (brief §5.2). Silent when the LIS isn't configured. */
+export function RequisitionCheck({ no, patient }: { no: string; patient?: string }) {
+  const [q, setQ] = useState(no);
+  useEffect(() => { const t = setTimeout(() => setQ(no.trim()), 500); return () => clearTimeout(t); }, [no]);
+  const { data } = useQuery({
+    queryKey: ['requisition', q, patient],
+    queryFn: () => fetch(`/api/integrations/requisition/${encodeURIComponent(q)}${patient ? `?patient=${encodeURIComponent(patient)}` : ''}`, { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : { status: 'unavailable' })),
+    enabled: q.length >= 3,
+    staleTime: 60_000,
+  });
+  if (!data || data.status === 'unavailable') return null;
+  if (data.status === 'unknown') return <span className="mt-1 flex items-center gap-1 text-xs text-bad"><AlertTriangle size={12} />Not found in the LIS — check the number</span>;
+  return (
+    <span className={cx('mt-1 flex items-center gap-1 text-xs', data.patient_match === false ? 'text-warn' : 'text-ok')}>
+      {data.patient_match === false ? <><AlertTriangle size={12} />Found in the LIS, but the patient name differs</> : <><CheckCircle2 size={12} />Found in the LIS{data.patient_match ? ' · patient matches' : ''}</>}
+    </span>
+  );
+}

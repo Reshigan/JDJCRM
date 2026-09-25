@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pelo emblem (heart + ECG) for the adaptive launcher icon; 108dp canvas, emblem inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="1.25" android:scaleY="1.25" android:translateX="24" android:translateY="24">
+        <path android:fillColor="#FF5A4D"
+            android:pathData="M24 42S5 30.5 5 17.8C5 11.3 10 7 15.6 7c3.7 0 7 2 8.4 5 1.4-3 4.7-5 8.4-5C38 7 43 11.3 43 17.8 43 30.5 24 42 24 42Z" />
+        <path android:strokeColor="#FFFFFF" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M9 24h7.5l3-7 5 13 3.2-7.4 2 1.4H39" />
+    </group>
+</vector>

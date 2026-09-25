@@ -1,0 +1,110 @@
+# Pelo CRM on-premise stack. First run: ./scripts/init.sh
+name: baton
+
+x-api-env: &api-env
+  DATABASE_URL: postgres://baton@db:5432/baton
+  PGPASSWORD_FILE: /run/secrets/db_password
+  MASTER_KEY_FILE: /run/secrets/master_key
+  DATA_DIR: /data
+  APP_URL: ${APP_URL:-https://crm.local}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-25}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  SMTP_FROM: ${SMTP_FROM:-Pelo CRM <crm@jdj.local>}
+  SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
+  SMTP_CA_FILE: ${SMTP_CA_FILE:-}
+  LDAP_URL: ${LDAP_URL:-}
+  LDAP_BASE_DN: ${LDAP_BASE_DN:-}
+  LDAP_UPN_SUFFIX: ${LDAP_UPN_SUFFIX:-}
+  LDAP_CA_FILE: ${LDAP_CA_FILE:-}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@crm.local}
+  LIS_WEBHOOK_SECRET: ${LIS_WEBHOOK_SECRET:-}
+  LIS_VALIDATE_URL: ${LIS_VALIDATE_URL:-}
+  LIS_TOKEN: ${LIS_TOKEN:-}
+  TZ: Africa/Johannesburg
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: baton
+      POSTGRES_DB: baton
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      TZ: Africa/Johannesburg
+    secrets: [db_password]
+    volumes: [db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "baton"]
+      interval: 10s
+      retries: 10
+
+  api:
+    build: { context: ., target: api }
+    image: baton-api:${BATON_VERSION:-latest}
+    restart: unless-stopped
+    environment: *api-env
+    secrets: [db_password, master_key]
+    volumes: [blobs:/data, ./certs:/certs:ro] # ./certs: internal CA certificates for LDAPS / SMTP
+    depends_on: { db: { condition: service_healthy } }
+
+  worker:
+    image: baton-api:${BATON_VERSION:-latest}
+    restart: unless-stopped
+    command: ["node", "dist/worker.js"]
+    environment: *api-env
+    secrets: [db_password, master_key]
+    volumes: [blobs:/data, ./certs:/certs:ro] # ./certs: internal CA certificates for LDAPS / SMTP
+    depends_on: { api: { condition: service_healthy } }
+
+  # SkyLIMS HL7 v2 listener (MLLP). Off unless enabled: COMPOSE_PROFILES=skylims in .env. See docs/LIS.md.
+  lis:
+    image: baton-api:${BATON_VERSION:-latest}
+    profiles: [skylims]
+    restart: unless-stopped
+    command: ["node", "dist/mllp.js"]
+    environment:
+      <<: *api-env
+      SKYLIMS_PORT: 2575
+      SKYLIMS_ALLOW: ${SKYLIMS_ALLOW:-}
+    secrets: [db_password, master_key]
+    ports: ["${SKYLIMS_BIND:-0.0.0.0}:2575:2575"]
+    depends_on: { api: { condition: service_healthy } }
+
+  web:
+    build: { context: ., target: web }
+    image: baton-web:${BATON_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-crm.local}
+    ports: ["80:80", "443:443"]
+    volumes: [caddy_data:/data, caddy_config:/config]
+    depends_on: [api]
+
+  # Nightly database dump + encrypted attachment store, 14-day retention.
+  # The MASTER KEY is NOT in these backups: store secrets/master_key separately and safely.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment: { TZ: Africa/Johannesburg }
+    secrets: [db_password]
+    volumes: [backups:/backups, blobs:/data:ro]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        export PGPASSWORD=$$(cat /run/secrets/db_password)
+        while true; do
+          ts=$$(date +%F_%H%M)
+          pg_dump -h db -U baton -Fc baton > /backups/baton_$$ts.dump && tar czf /backups/blobs_$$ts.tgz -C /data . && echo "backup $$ts ok" \
+            && psql -h db -U baton -d baton -qc "insert into settings values ('last_backup', to_jsonb(now()::text)) on conflict (key) do update set value = excluded.value"
+          find /backups -type f -mtime +14 -delete
+          sleep 86400
+        done
+    depends_on: { db: { condition: service_healthy } }
+
+volumes: { db: {}, blobs: {}, caddy_data: {}, caddy_config: {}, backups: {} }
+
+secrets:
+  db_password: { file: ./secrets/db_password }
+  master_key: { file: ./secrets/master_key }
