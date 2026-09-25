@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Send one harmless HL7 status message to Baton's SkyLIMS listener and print the ACK.
+// Send one harmless HL7 status message to the CRM's SkyLIMS listener and print the ACK.
 // Usage: node scripts/hl7-ping.mjs [host] [port]   — exits 0 on MSA|AA.
 import net from 'node:net';
 const [host = '127.0.0.1', port = '2575'] = process.argv.slice(2);

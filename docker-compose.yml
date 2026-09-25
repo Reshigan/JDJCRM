@@ -1,4 +1,4 @@
-# Baton on-premise stack. First run: ./scripts/init.sh
+# Pelo CRM on-premise stack. First run: ./scripts/init.sh
 name: baton
 
 x-api-env: &api-env

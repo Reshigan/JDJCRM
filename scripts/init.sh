@@ -13,4 +13,4 @@ docker compose up -d
 echo "Creating administrator (set ADMIN_EMAIL / ADMIN_PASSWORD in .env to choose)…"
 docker compose exec -T -e ADMIN_PASSWORD="${ADMIN_PASSWORD:-$(grep ^ADMIN_PASSWORD= .env | cut -d= -f2-)}" api node dist/seed.js
 echo
-echo "Baton is up. BACK UP secrets/master_key NOW — without it, attachments cannot be decrypted."
+echo "Pelo CRM is up. BACK UP secrets/master_key NOW — without it, attachments cannot be decrypted."

@@ -1,4 +1,4 @@
-# Baton — one build, two runtime images: `api` (API + worker) and `web` (Caddy + PWA).
+# Pelo CRM — one build, two runtime images: `api` (API + worker) and `web` (Caddy + PWA).
 FROM node:22-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
